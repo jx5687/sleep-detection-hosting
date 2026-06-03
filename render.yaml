@@ -3,8 +3,11 @@ services:
     name: drowsyguard
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
- 
+      - key: FACE_MODEL_PATH
+        value: face_detection_model.h5
+      - key: SLEEP_MODEL_PATH
+        value: sleep_detection_model.h5
