@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DrowsyGuard — Sistem Deteksi Kantuk</title>
+
+  <!-- MediaPipe -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg:        #080c10;
+      --surface:   #0e1520;
+      --border:    #1e2d40;
+      --accent:    #00e5ff;
+      --ok:        #00ff88;
+      --warn:      #ffaa00;
+      --danger:    #ff2d55;
+      --text:      #e8f4ff;
+      --muted:     #4a6080;
+      --radius:    12px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* ─── HEADER ─────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 32px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 1.3rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+
+    .logo-icon {
+      width: 38px; height: 38px;
+      background: linear-gradient(135deg, var(--accent), #0088ff);
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      font-size: 1.2rem;
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      background: var(--bg);
+      transition: all 0.3s;
+    }
+
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: background 0.3s;
+    }
+
+    .status-pill.active .status-dot { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+    .status-pill.warn   .status-dot { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
+    .status-pill.danger .status-dot { background: var(--danger); box-shadow: 0 0 8px var(--danger); animation: pulse 0.5s infinite; }
+
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    /* ─── LAYOUT ─────────────────────────────── */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 20px;
+      padding: 20px 24px;
+      max-width: 1300px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    /* ─── VIDEO SECTION ───────────────────────── */
+    .video-section {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .video-wrapper {
+      position: relative;
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: #000;
+      aspect-ratio: 4/3;
+    }
+
+    #inputVideo {
+      display: none;
+    }
+
+    #outputCanvas {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* OVERLAY saat DROWSY */
+    .drowsy-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(255, 45, 85, 0.08);
+      border: 3px solid var(--danger);
+      border-radius: var(--radius);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+      animation: flashBorder 0.4s infinite;
+    }
+
+    .drowsy-overlay.visible { display: flex; }
+
+    @keyframes flashBorder {
+      0%,100% { border-color: var(--danger); }
+      50%      { border-color: transparent; }
+    }
+
+    .drowsy-overlay .drowsy-text {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--danger);
+      text-shadow: 0 0 20px var(--danger);
+      letter-spacing: 2px;
+    }
+
+    .drowsy-overlay .drowsy-sub {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      color: var(--danger);
+      opacity: 0.8;
+    }
+
+    /* ─── EYE STATUS CARDS ───────────────────── */
+    .eye-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .eye-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .eye-card.open {
+      border-color: var(--ok);
+      box-shadow: 0 0 16px rgba(0, 255, 136, 0.1);
+    }
+
+    .eye-card.closed {
+      border-color: var(--danger);
+      box-shadow: 0 0 16px rgba(255, 45, 85, 0.15);
+    }
+
+    .eye-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .eye-status-text {
+      font-size: 1.4rem;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .eye-card.open  .eye-status-text { color: var(--ok); }
+    .eye-card.closed .eye-status-text { color: var(--danger); }
+
+    .ear-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    /* ─── SIDE PANEL ──────────────────────────── */
+    .side-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .panel-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+
+    .panel-title {
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    /* PERCLOS gauge */
+    .perclos-gauge {
+      position: relative;
+      height: 8px;
+      background: var(--border);
+      border-radius: 99px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+
+    .perclos-bar {
+      height: 100%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, var(--ok), var(--warn), var(--danger));
+      transition: width 0.5s ease;
+      width: 0%;
+    }
+
+    .perclos-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 2rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .perclos-label {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    /* METRICS LIST */
+    .metric-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .metric-row:last-child { border-bottom: none; }
+
+    .metric-name {
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    .metric-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.88rem;
+      font-weight: 600;
+    }
+
+    /* HISTORY log */
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .history-item {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      font-size: 0.78rem;
+    }
+
+    .history-time {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .history-badge {
+      padding: 1px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 0.72rem;
+    }
+
+    .badge-drowsy  { background: rgba(255,45,85,0.2);  color: var(--danger); }
+    .badge-awake   { background: rgba(0,255,136,0.15); color: var(--ok); }
+    .badge-noface  { background: rgba(74,96,128,0.3);  color: var(--muted); }
+
+    /* CONTROLS */
+    .controls {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: var(--radius);
+      font-family: 'Syne', sans-serif;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #000;
+    }
+
+    .btn-primary:hover { opacity: 0.85; transform: translateY(-1px); }
+
+    .btn-secondary {
+      background: var(--border);
+      color: var(--text);
+    }
+
+    .btn-secondary:hover { background: var(--muted); }
+
+    /* ALERT SOUND toggle */
+    .toggle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 12px;
+    }
+
+    .toggle-label { font-size: 0.82rem; color: var(--muted); }
+
+    .toggle {
+      position: relative;
+      width: 40px; height: 22px;
+    }
+
+    .toggle input { opacity: 0; width: 0; height: 0; }
+
+    .slider {
+      position: absolute;
+      inset: 0;
+      background: var(--border);
+      border-radius: 22px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    .slider::before {
+      content: '';
+      position: absolute;
+      width: 16px; height: 16px;
+      left: 3px; bottom: 3px;
+      background: var(--muted);
+      border-radius: 50%;
+      transition: 0.3s;
+    }
+
+    input:checked + .slider { background: var(--accent); }
+    input:checked + .slider::before { transform: translateX(18px); background: #000; }
+
+    /* FOOTER */
+    footer {
+      text-align: center;
+      padding: 16px;
+      font-size: 0.72rem;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+    }
+
+    /* ─── RESPONSIVE ─────────────────────────── */
+    @media (max-width: 900px) {
+      main { grid-template-columns: 1fr; }
+      .side-panel { flex-direction: row; flex-wrap: wrap; }
+      .panel-card { flex: 1 1 260px; }
+    }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+<!-- AUDIO ALERT -->
+<audio id="alertSound" loop>
+  <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAA..." type="audio/wav">
+</audio>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">👁</div>
+    DrowsyGuard
+  </div>
+  <div class="status-pill" id="statusPill">
+    <div class="status-dot"></div>
+    <span id="statusText">Menginisialisasi...</span>
+  </div>
+</header>
+
+<main>
+  <!-- VIDEO SECTION -->
+  <div class="video-section">
+    <div class="video-wrapper">
+      <video id="inputVideo" playsinline></video>
+      <canvas id="outputCanvas"></canvas>
+      <div class="drowsy-overlay" id="drowsyOverlay">
+        <div class="drowsy-text">⚠ MENGANTUK!</div>
+        <div class="drowsy-sub">Segera istirahat</div>
+      </div>
+    </div>
+
+    <!-- EYE STATUS CARDS -->
+    <div class="eye-cards">
+      <div class="eye-card" id="leftEyeCard">
+        <div class="eye-label">Mata Kiri</div>
+        <div class="eye-status-text" id="leftEyeStatus">—</div>
+        <div class="ear-value">EAR: <span id="leftEAR">—</span></div>
+      </div>
+      <div class="eye-card" id="rightEyeCard">
+        <div class="eye-label">Mata Kanan</div>
+        <div class="eye-status-text" id="rightEyeStatus">—</div>
+        <div class="ear-value">EAR: <span id="rightEAR">—</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIDE PANEL -->
+  <div class="side-panel">
+
+    <!-- PERCLOS -->
+    <div class="panel-card">
+      <div class="panel-title">PERCLOS (3 detik)</div>
+      <div class="perclos-value" id="perclosValue">0%</div>
+      <div class="perclos-gauge">
+        <div class="perclos-bar" id="perclosBar"></div>
+      </div>
+      <div class="perclos-label">Ambang kantuk: ≥ 70%</div>
+    </div>
+
+    <!-- METRICS -->
+    <div class="panel-card">
+      <div class="panel-title">Metrik Sesi</div>
+      <div class="metric-row">
+        <span class="metric-name">Status Wajah</span>
+        <span class="metric-val" id="faceStatus">—</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-name">EAR Rata-rata</span>
+        <span class="metric-val" id="avgEAR">—</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-name">EAR Threshold</span>
+        <span class="metric-val" style="color:var(--warn)">0.18</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-name">FPS</span>
+        <span class="metric-val" id="fpsDisplay">—</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-name">Durasi CLOSED</span>
+        <span class="metric-val" id="closedDuration">0s</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-name">Alert Terkirim</span>
+        <span class="metric-val" id="alertCount">0</span>
+      </div>
+    </div>
+
+    <!-- CONTROLS -->
+    <div class="panel-card">
+      <div class="panel-title">Kontrol</div>
+      <div class="controls">
+        <button class="btn btn-primary" id="startBtn" onclick="startCamera()">▶ Mulai</button>
+        <button class="btn btn-secondary" id="stopBtn" onclick="stopCamera()" disabled>■ Stop</button>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">🔊 Alert suara</span>
+        <label class="toggle">
+          <input type="checkbox" id="soundToggle" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="toggle-row" style="margin-top:8px">
+        <span class="toggle-label">🪞 Mirror kamera</span>
+        <label class="toggle">
+          <input type="checkbox" id="mirrorToggle" checked onchange="toggleMirror()">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- HISTORY -->
+    <div class="panel-card">
+      <div class="panel-title">Riwayat Event</div>
+      <div class="history-list" id="historyList">
+        <div style="color:var(--muted);font-size:0.8rem">Belum ada event.</div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<footer>DrowsyGuard · MediaPipe Face Mesh · EAR Detection · Real-time</footer>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════════════════════════
+const EAR_THRESHOLD   = 0.18;   // di bawah ini = CLOSED
+const PERCLOS_WINDOW  = 3000;   // ms, window PERCLOS
+const DROWSY_PERCLOS  = 0.70;   // 70% → DROWSY
+const CLOSED_ALERT_MS = 2000;   // langsung alert kalau merem >2 detik terus
+
+// MediaPipe landmark indices untuk 6 titik per mata
+// format: [P1, P2, P3, P4, P5, P6] sesuai paper EAR
+const LEFT_EYE  = [362, 385, 387, 263, 373, 380];
+const RIGHT_EYE = [33,  160, 158, 133, 153, 144];
+
+// ═══════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════
+let faceMesh   = null;
+let camera     = null;
+let isRunning  = false;
+let isMirrored = true;
+
+// Frame history untuk PERCLOS
+let frameHistory    = [];   // [{ts, closed}]
+let alertCount      = 0;
+let closedStartTime = null;
+let lastDrowsyState = false;
+let isDrowsy        = false;
+
+// FPS counter
+let fpsFrames = 0;
+let fpsLast   = performance.now();
+let currentFPS = 0;
+
+// Audio context untuk beep alert (generated, tidak butuh file)
+let audioCtx = null;
+let alertNode = null;
+let isBeeping = false;
+
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function startBeep() {
+  if (isBeeping) return;
+  if (!document.getElementById('soundToggle').checked) return;
+  isBeeping = true;
+  const ctx = getAudioCtx();
+
+  function beepLoop() {
+    if (!isBeeping) return;
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type      = 'sine';
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.5, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.4);
+    osc.onended = () => { if (isBeeping) setTimeout(beepLoop, 600); };
+  }
+  beepLoop();
+}
+
+function stopBeep() {
+  isBeeping = false;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  EAR CALCULATION
+// ═══════════════════════════════════════════════════════════
+function dist(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function calcEAR(lm, indices) {
+  // EAR = (||P2-P6|| + ||P3-P5||) / (2 * ||P1-P4||)
+  const p = indices.map(i => lm[i]);
+  const vertical1 = dist(p[1], p[5]);
+  const vertical2 = dist(p[2], p[4]);
+  const horizontal = dist(p[0], p[3]);
+  if (horizontal < 1e-6) return 0;
+  return (vertical1 + vertical2) / (2.0 * horizontal);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  DRAW ON CANVAS
+// ═══════════════════════════════════════════════════════════
+function drawEyeContour(ctx, lm, indices, color, canvasW, canvasH) {
+  ctx.beginPath();
+  indices.forEach((i, idx) => {
+    const x = lm[i].x * canvasW;
+    const y = lm[i].y * canvasH;
+    if (idx === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.closePath();
+  ctx.strokeStyle = color;
+  ctx.lineWidth   = 2;
+  ctx.stroke();
+  ctx.fillStyle = color + '33';
+  ctx.fill();
+}
+
+function drawLabel(ctx, text, x, y, color) {
+  ctx.font      = 'bold 13px JetBrains Mono, monospace';
+  ctx.fillStyle = color;
+  ctx.fillText(text, x, y);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MEDIAPIPE CALLBACK
+// ═══════════════════════════════════════════════════════════
+function onResults(results) {
+  const canvas = document.getElementById('outputCanvas');
+  const ctx    = canvas.getContext('2d');
+  const W      = canvas.width;
+  const H      = canvas.height;
+
+  // FPS
+  fpsFrames++;
+  const now = performance.now();
+  if (now - fpsLast >= 1000) {
+    currentFPS = fpsFrames;
+    fpsFrames  = 0;
+    fpsLast    = now;
+    document.getElementById('fpsDisplay').textContent = currentFPS + ' fps';
+  }
+
+  // Clear
+  ctx.clearRect(0, 0, W, H);
+
+  // Mirror
+  if (isMirrored) {
+    ctx.save();
+    ctx.translate(W, 0);
+    ctx.scale(-1, 1);
+  }
+
+  // Draw video frame
+  ctx.drawImage(results.image, 0, 0, W, H);
+
+  if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+    if (isMirrored) ctx.restore();
+    updateNoFace();
+    return;
+  }
+
+  const lm = results.multiFaceLandmarks[0];
+
+  // Hitung EAR
+  const earL = calcEAR(lm, LEFT_EYE);
+  const earR = calcEAR(lm, RIGHT_EYE);
+  const earAvg = (earL + earR) / 2;
+
+  const leftClosed  = earL < EAR_THRESHOLD;
+  const rightClosed = earR < EAR_THRESHOLD;
+  const bothClosed  = leftClosed && rightClosed;
+
+  // Draw contours
+  const colorL = leftClosed  ? '#ff2d55' : '#00ff88';
+  const colorR = rightClosed ? '#ff2d55' : '#00ff88';
+
+  drawEyeContour(ctx, lm, LEFT_EYE,  colorL, W, H);
+  drawEyeContour(ctx, lm, RIGHT_EYE, colorR, W, H);
+
+  // Label EAR di atas mata
+  const lx = lm[LEFT_EYE[0]].x  * W;
+  const ly = lm[LEFT_EYE[0]].y  * H;
+  const rx = lm[RIGHT_EYE[0]].x * W;
+  const ry = lm[RIGHT_EYE[0]].y * H;
+
+  drawLabel(ctx, `EAR:${earL.toFixed(3)}`, isMirrored ? W - lx + 5 : lx - 90, ly - 8, colorL);
+  drawLabel(ctx, `EAR:${earR.toFixed(3)}`, isMirrored ? W - rx + 5 : rx - 90, ry - 8, colorR);
+
+  if (isMirrored) ctx.restore();
+
+  // ── Update PERCLOS buffer ──────────────────────
+  const ts = performance.now();
+  frameHistory.push({ ts, closed: bothClosed ? 1 : 0 });
+  // Buang frame di luar window
+  while (frameHistory.length > 0 && ts - frameHistory[0].ts > PERCLOS_WINDOW) {
+    frameHistory.shift();
+  }
+
+  const perclos = frameHistory.length > 0
+    ? frameHistory.reduce((s, f) => s + f.closed, 0) / frameHistory.length
+    : 0;
+
+  // ── Closed duration tracker ───────────────────
+  if (bothClosed) {
+    if (!closedStartTime) closedStartTime = ts;
+  } else {
+    closedStartTime = null;
+  }
+
+  const closedDurMs = closedStartTime ? ts - closedStartTime : 0;
+
+  // ── DROWSY decision ────────────────────────────
+  const drowsyByPerclos = perclos >= DROWSY_PERCLOS;
+  const drowsyByClosed  = closedDurMs >= CLOSED_ALERT_MS;
+  isDrowsy = drowsyByPerclos || drowsyByClosed;
+
+  if (isDrowsy && !lastDrowsyState) {
+    alertCount++;
+    addHistory('drowsy', earL, earR, perclos);
+    logToServer('DROWSY', earL, earR, perclos);
+    startBeep();
+  } else if (!isDrowsy && lastDrowsyState) {
+    addHistory('awake', earL, earR, perclos);
+    stopBeep();
+  }
+  lastDrowsyState = isDrowsy;
+
+  // ── Update UI ──────────────────────────────────
+  updateUI({
+    earL, earR, earAvg,
+    leftClosed, rightClosed,
+    perclos, closedDurMs,
+    faceDetected: true,
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  UI UPDATERS
+// ═══════════════════════════════════════════════════════════
+function updateUI({ earL, earR, earAvg, leftClosed, rightClosed, perclos, closedDurMs, faceDetected }) {
+  // Status pill
+  const pill = document.getElementById('statusPill');
+  const txt  = document.getElementById('statusText');
+
+  if (!faceDetected) {
+    pill.className = 'status-pill';
+    txt.textContent = 'Wajah Tidak Terdeteksi';
+  } else if (isDrowsy) {
+    pill.className = 'status-pill danger';
+    txt.textContent = '⚠ MENGANTUK!';
+  } else {
+    pill.className = 'status-pill active';
+    txt.textContent = 'Normal';
+  }
+
+  // Eye cards
+  setEyeCard('left',  leftClosed,  earL);
+  setEyeCard('right', rightClosed, earR);
+
+  // PERCLOS
+  const pct = (perclos * 100).toFixed(1);
+  document.getElementById('perclosValue').textContent = pct + '%';
+  document.getElementById('perclosBar').style.width   = Math.min(perclos * 100, 100) + '%';
+
+  // Metrics
+  document.getElementById('faceStatus').textContent    = faceDetected ? '✓ Terdeteksi' : '✗ Tidak ada';
+  document.getElementById('avgEAR').textContent         = earAvg.toFixed(3);
+  document.getElementById('closedDuration').textContent = (closedDurMs / 1000).toFixed(1) + 's';
+  document.getElementById('alertCount').textContent     = alertCount;
+
+  // Drowsy overlay
+  const overlay = document.getElementById('drowsyOverlay');
+  if (isDrowsy) overlay.classList.add('visible');
+  else           overlay.classList.remove('visible');
+}
+
+function updateNoFace() {
+  const pill = document.getElementById('statusPill');
+  const txt  = document.getElementById('statusText');
+  pill.className  = 'status-pill';
+  txt.textContent = 'Wajah Tidak Terdeteksi';
+
+  document.getElementById('faceStatus').textContent = '✗ Tidak ada';
+  document.getElementById('leftEyeStatus').textContent  = '—';
+  document.getElementById('rightEyeStatus').textContent = '—';
+  document.getElementById('leftEAR').textContent  = '—';
+  document.getElementById('rightEAR').textContent = '—';
+  document.getElementById('drowsyOverlay').classList.remove('visible');
+
+  stopBeep();
+  lastDrowsyState = false;
+  closedStartTime = null;
+}
+
+function setEyeCard(side, closed, ear) {
+  const card   = document.getElementById(side + 'EyeCard');
+  const status = document.getElementById(side + 'EyeStatus');
+  const earEl  = document.getElementById(side + 'EAR');
+
+  card.className   = 'eye-card ' + (closed ? 'closed' : 'open');
+  status.textContent = closed ? 'CLOSED' : 'OPEN';
+  earEl.textContent  = ear.toFixed(3);
+}
+
+function addHistory(type, earL, earR, perclos) {
+  const list  = document.getElementById('historyList');
+  const time  = new Date().toLocaleTimeString('id-ID');
+  const badge = type === 'drowsy'
+    ? '<span class="history-badge badge-drowsy">MENGANTUK</span>'
+    : '<span class="history-badge badge-awake">SADAR</span>';
+
+  const item = document.createElement('div');
+  item.className = 'history-item';
+  item.innerHTML = `
+    <span class="history-time">${time}</span>
+    ${badge}
+    <span style="color:var(--muted);font-size:0.72rem">EAR L:${earL.toFixed(2)} R:${earR.toFixed(2)}</span>
+  `;
+
+  // Hapus placeholder
+  if (list.querySelector('div[style]')) list.innerHTML = '';
+
+  list.prepend(item);
+
+  // Maksimal 20 item
+  while (list.children.length > 20) list.removeChild(list.lastChild);
+}
+
+async function logToServer(event, earL, earR, perclos) {
+  try {
+    await fetch('/log_event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event, ear_left: earL, ear_right: earR, perclos }),
+    });
+  } catch (_) {}
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CAMERA CONTROL
+// ═══════════════════════════════════════════════════════════
+async function startCamera() {
+  if (isRunning) return;
+
+  document.getElementById('startBtn').disabled = true;
+  document.getElementById('statusText').textContent = 'Memuat MediaPipe...';
+
+  const video  = document.getElementById('inputVideo');
+  const canvas = document.getElementById('outputCanvas');
+
+  // Init MediaPipe FaceMesh
+  faceMesh = new FaceMesh({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+  });
+
+  faceMesh.setOptions({
+    maxNumFaces:          1,
+    refineLandmarks:      true,   // lebih akurat, perlu untuk iris/eye detail
+    minDetectionConfidence: 0.6,
+    minTrackingConfidence:  0.6,
+  });
+
+  faceMesh.onResults(onResults);
+
+  // Init camera
+  camera = new Camera(video, {
+    onFrame: async () => {
+      canvas.width  = video.videoWidth  || 640;
+      canvas.height = video.videoHeight || 480;
+      await faceMesh.send({ image: video });
+    },
+    width: 640,
+    height: 480,
+    facingMode: 'user',
+  });
+
+  await camera.start();
+
+  isRunning = true;
+  document.getElementById('startBtn').disabled  = false;
+  document.getElementById('startBtn').disabled  = true;
+  document.getElementById('stopBtn').disabled   = false;
+}
+
+function stopCamera() {
+  if (!isRunning) return;
+  if (camera) camera.stop();
+  stopBeep();
+  isRunning       = false;
+  lastDrowsyState = false;
+  closedStartTime = null;
+  frameHistory    = [];
+
+  const canvas = document.getElementById('outputCanvas');
+  const ctx    = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  document.getElementById('startBtn').disabled = false;
+  document.getElementById('stopBtn').disabled  = true;
+  document.getElementById('statusPill').className = 'status-pill';
+  document.getElementById('statusText').textContent = 'Kamera dihentikan';
+  document.getElementById('drowsyOverlay').classList.remove('visible');
+}
+
+function toggleMirror() {
+  isMirrored = document.getElementById('mirrorToggle').checked;
+}
+
+// Auto-start on load
+window.addEventListener('load', () => {
+  setTimeout(startCamera, 500);
+});
+</script>
+</body>
+</html>
