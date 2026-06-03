@@ -25,147 +25,509 @@
       --muted:   #4a6080;
       --radius:  12px;
     }
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
-      background: var(--bg); color: var(--text);
+      background: var(--bg);
+      color: var(--text);
       font-family: 'Syne', sans-serif;
-      min-height: 100vh; display: flex; flex-direction: column;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
 
     header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 16px 28px; border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 28px;
+      border-bottom: 1px solid var(--border);
       background: var(--surface);
     }
-    .logo { display: flex; align-items: center; gap: 12px; font-size: 1.25rem; font-weight: 800; }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 1.25rem;
+      font-weight: 800;
+    }
+
     .logo-icon {
-      width: 36px; height: 36px;
+      width: 36px;
+      height: 36px;
       background: linear-gradient(135deg, var(--accent), #0088ff);
-      border-radius: 8px; display: grid; place-items: center; font-size: 1.1rem;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      font-size: 1.1rem;
     }
+
     .status-pill {
-      display: flex; align-items: center; gap: 8px;
-      padding: 6px 16px; border-radius: 999px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px;
+      border-radius: 999px;
       border: 1px solid var(--border);
-      font-family: 'JetBrains Mono', monospace; font-size: 0.78rem;
-      background: var(--bg); transition: all 0.3s;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      background: var(--bg);
+      transition: all 0.3s;
     }
-    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); transition: all 0.3s; }
-    .status-pill.active .status-dot { background: var(--ok);    box-shadow: 0 0 8px var(--ok); }
-    .status-pill.danger .status-dot { background: var(--danger); box-shadow: 0 0 8px var(--danger); animation: blink .5s infinite; }
-    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: all 0.3s;
+    }
+
+    .status-pill.active .status-dot {
+      background: var(--ok);
+      box-shadow: 0 0 8px var(--ok);
+    }
+
+    .status-pill.danger .status-dot {
+      background: var(--danger);
+      box-shadow: 0 0 8px var(--danger);
+      animation: blink .5s infinite;
+    }
+
+    @keyframes blink {
+      0%,100% { opacity: 1; }
+      50% { opacity: .3; }
+    }
 
     main {
-      flex: 1; display: grid; grid-template-columns: 1fr 320px;
-      gap: 18px; padding: 18px 22px;
-      max-width: 1280px; margin: 0 auto; width: 100%;
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 18px;
+      padding: 18px 22px;
+      max-width: 1280px;
+      margin: 0 auto;
+      width: 100%;
     }
 
-    .video-section { display: flex; flex-direction: column; gap: 14px; }
-    .video-wrapper {
-      position: relative; border-radius: var(--radius);
-      overflow: hidden; border: 1px solid var(--border);
-      background: #000; aspect-ratio: 4/3;
+    .video-section {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
     }
-    #inputVideo  { display: none; }
-    #outputCanvas { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    .video-wrapper {
+      position: relative;
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: #000;
+      aspect-ratio: 4/3;
+    }
+
+    #inputVideo {
+      display: none;
+    }
+
+    #outputCanvas {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
 
     .drowsy-overlay {
-      position: absolute; inset: 0;
+      position: absolute;
+      inset: 0;
       background: rgba(255,45,85,.08);
-      border: 3px solid var(--danger); border-radius: var(--radius);
-      display: none; align-items: center; justify-content: center;
-      flex-direction: column; gap: 8px; pointer-events: none;
+      border: 3px solid var(--danger);
+      border-radius: var(--radius);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
       animation: flashBorder .4s infinite;
     }
-    .drowsy-overlay.visible { display: flex; }
-    @keyframes flashBorder { 0%,100%{border-color:var(--danger)} 50%{border-color:transparent} }
-    .drowsy-text { font-size: 2rem; font-weight: 800; color: var(--danger); text-shadow: 0 0 20px var(--danger); letter-spacing: 2px; }
-    .drowsy-sub  { font-family: 'JetBrains Mono', monospace; font-size: .82rem; color: var(--danger); opacity: .8; }
+
+    .drowsy-overlay.visible {
+      display: flex;
+    }
+
+    @keyframes flashBorder {
+      0%,100% { border-color: var(--danger); }
+      50% { border-color: transparent; }
+    }
+
+    .drowsy-text {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--danger);
+      text-shadow: 0 0 20px var(--danger);
+      letter-spacing: 2px;
+    }
+
+    .drowsy-sub {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .82rem;
+      color: var(--danger);
+      opacity: .8;
+    }
 
     .fps-badge {
-      position: absolute; top: 10px; right: 10px;
-      background: rgba(0,0,0,.65); border: 1px solid var(--border);
-      border-radius: 6px; padding: 3px 10px;
-      font-family: 'JetBrains Mono', monospace; font-size: .72rem; color: var(--muted);
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(0,0,0,.65);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 3px 10px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .72rem;
+      color: var(--muted);
     }
 
-    .eye-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .eye-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
     .eye-card {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 14px 18px; transition: all .25s;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      transition: all .25s;
     }
-    .eye-card.open   { border-color: var(--ok);    box-shadow: 0 0 14px rgba(0,255,136,.12); }
-    .eye-card.closed { border-color: var(--danger); box-shadow: 0 0 14px rgba(255,45,85,.18); }
-    .eye-label { font-size: .68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); margin-bottom: 6px; }
-    .eye-status-text { font-size: 1.4rem; font-weight: 800; margin-bottom: 4px; }
-    .eye-card.open   .eye-status-text { color: var(--ok); }
-    .eye-card.closed .eye-status-text { color: var(--danger); }
-    .eye-ear { font-family: 'JetBrains Mono', monospace; font-size: .75rem; color: var(--muted); }
 
-    .side-panel { display: flex; flex-direction: column; gap: 14px; }
+    .eye-card.open {
+      border-color: var(--ok);
+      box-shadow: 0 0 14px rgba(0,255,136,.12);
+    }
+
+    .eye-card.closed {
+      border-color: var(--danger);
+      box-shadow: 0 0 14px rgba(255,45,85,.18);
+    }
+
+    .eye-label {
+      font-size: .68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .eye-status-text {
+      font-size: 1.4rem;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .eye-card.open .eye-status-text {
+      color: var(--ok);
+    }
+
+    .eye-card.closed .eye-status-text {
+      color: var(--danger);
+    }
+
+    .eye-ear {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .75rem;
+      color: var(--muted);
+    }
+
+    .side-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
     .panel-card {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 18px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
     }
-    .panel-title { font-size: .68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); margin-bottom: 14px; }
 
-    .perclos-value { font-family: 'JetBrains Mono', monospace; font-size: 1.9rem; font-weight: 600; margin-bottom: 6px; }
-    .perclos-gauge { height: 8px; background: var(--border); border-radius: 99px; overflow: hidden; margin-bottom: 6px; }
-    .perclos-bar   { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--ok), var(--warn), var(--danger)); transition: width .5s ease; width: 0%; }
-    .perclos-label { font-size: .73rem; color: var(--muted); }
+    .panel-title {
+      font-size: .68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
 
-    .metric-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--border); }
-    .metric-row:last-child { border-bottom: none; }
-    .metric-name { font-size: .8rem; color: var(--muted); }
-    .metric-val  { font-family: 'JetBrains Mono', monospace; font-size: .85rem; font-weight: 600; }
+    .perclos-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.9rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
 
-    /* CNN panel khusus — highlight buat dosen */
-    .cnn-panel { border-color: var(--accent) !important; }
-    .cnn-panel .panel-title { color: var(--accent); }
-    .cnn-score-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
-    .cnn-score-row:last-child { border-bottom: none; }
-    .cnn-label { font-size: .8rem; color: var(--muted); }
-    .cnn-val   { font-family: 'JetBrains Mono', monospace; font-size: .9rem; font-weight: 600; color: var(--accent); }
+    .perclos-gauge {
+      height: 8px;
+      background: var(--border);
+      border-radius: 99px;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+
+    .perclos-bar {
+      height: 100%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, var(--ok), var(--warn), var(--danger));
+      transition: width .5s ease;
+      width: 0%;
+    }
+
+    .perclos-label {
+      font-size: .73rem;
+      color: var(--muted);
+    }
+
+    .metric-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .metric-row:last-child {
+      border-bottom: none;
+    }
+
+    .metric-name {
+      font-size: .8rem;
+      color: var(--muted);
+    }
+
+    .metric-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .85rem;
+      font-weight: 600;
+    }
+
+    .cnn-panel {
+      border-color: var(--accent) !important;
+    }
+
+    .cnn-panel .panel-title {
+      color: var(--accent);
+    }
+
+    .cnn-score-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .cnn-score-row:last-child {
+      border-bottom: none;
+    }
+
+    .cnn-label {
+      font-size: .8rem;
+      color: var(--muted);
+    }
+
+    .cnn-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .9rem;
+      font-weight: 600;
+      color: var(--accent);
+    }
+
     .cnn-badge {
-      font-size: .68rem; font-weight: 600; padding: 2px 8px;
-      border-radius: 4px; background: rgba(0,229,255,.1);
-      color: var(--accent); border: 1px solid rgba(0,229,255,.3);
+      font-size: .68rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(0,229,255,.1);
+      color: var(--accent);
+      border: 1px solid rgba(0,229,255,.3);
     }
 
-    .controls { display: flex; gap: 10px; }
-    .btn { flex: 1; padding: 11px; border: none; border-radius: var(--radius); font-family: 'Syne', sans-serif; font-weight: 600; font-size: .88rem; cursor: pointer; transition: all .2s; }
-    .btn-primary   { background: var(--accent); color: #000; }
-    .btn-primary:hover  { opacity: .85; transform: translateY(-1px); }
-    .btn-secondary { background: var(--border); color: var(--text); }
-    .btn-secondary:hover { background: var(--muted); }
-    .btn:disabled  { opacity: .4; cursor: not-allowed; transform: none; }
+    .controls {
+      display: flex;
+      gap: 10px;
+    }
 
-    .toggle-row { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
-    .toggle-label { font-size: .8rem; color: var(--muted); }
-    .toggle { position: relative; width: 40px; height: 22px; }
-    .toggle input { opacity: 0; width: 0; height: 0; }
-    .slider { position: absolute; inset: 0; background: var(--border); border-radius: 22px; cursor: pointer; transition: .3s; }
-    .slider::before { content:''; position:absolute; width:16px; height:16px; left:3px; bottom:3px; background:var(--muted); border-radius:50%; transition:.3s; }
-    input:checked + .slider { background: var(--accent); }
-    input:checked + .slider::before { transform: translateX(18px); background:#000; }
+    .btn {
+      flex: 1;
+      padding: 11px;
+      border: none;
+      border-radius: var(--radius);
+      font-family: 'Syne', sans-serif;
+      font-weight: 600;
+      font-size: .88rem;
+      cursor: pointer;
+      transition: all .2s;
+    }
 
-    .history-list { display: flex; flex-direction: column; gap: 7px; max-height: 160px; overflow-y: auto; }
-    .history-item { display: flex; gap: 8px; align-items: center; font-size: .76rem; flex-wrap: wrap; }
-    .history-time { font-family: 'JetBrains Mono', monospace; color: var(--muted); white-space: nowrap; }
-    .history-badge { padding: 1px 8px; border-radius: 4px; font-weight: 600; font-size: .7rem; }
-    .badge-drowsy { background: rgba(255,45,85,.2);  color: var(--danger); }
-    .badge-awake  { background: rgba(0,255,136,.15); color: var(--ok); }
+    .btn-primary {
+      background: var(--accent);
+      color: #000;
+    }
 
-    footer { text-align: center; padding: 14px; font-size: .7rem; color: var(--muted); border-top: 1px solid var(--border); }
+    .btn-primary:hover {
+      opacity: .85;
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: var(--border);
+      color: var(--text);
+    }
+
+    .btn-secondary:hover {
+      background: var(--muted);
+    }
+
+    .btn:disabled {
+      opacity: .4;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .toggle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 12px;
+    }
+
+    .toggle-label {
+      font-size: .8rem;
+      color: var(--muted);
+    }
+
+    .toggle {
+      position: relative;
+      width: 40px;
+      height: 22px;
+    }
+
+    .toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      inset: 0;
+      background: var(--border);
+      border-radius: 22px;
+      cursor: pointer;
+      transition: .3s;
+    }
+
+    .slider::before {
+      content: '';
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      left: 3px;
+      bottom: 3px;
+      background: var(--muted);
+      border-radius: 50%;
+      transition: .3s;
+    }
+
+    input:checked + .slider {
+      background: var(--accent);
+    }
+
+    input:checked + .slider::before {
+      transform: translateX(18px);
+      background: #000;
+    }
+
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+
+    .history-item {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      font-size: .76rem;
+      flex-wrap: wrap;
+    }
+
+    .history-time {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .history-badge {
+      padding: 1px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: .7rem;
+    }
+
+    .badge-drowsy {
+      background: rgba(255,45,85,.2);
+      color: var(--danger);
+    }
+
+    .badge-awake {
+      background: rgba(0,255,136,.15);
+      color: var(--ok);
+    }
+
+    footer {
+      text-align: center;
+      padding: 14px;
+      font-size: .7rem;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+    }
 
     @media (max-width: 860px) {
-      main { grid-template-columns: 1fr; }
-      .side-panel { flex-direction: row; flex-wrap: wrap; }
-      .panel-card { flex: 1 1 240px; }
+      main {
+        grid-template-columns: 1fr;
+      }
+
+      .side-panel {
+        flex-direction: row;
+        flex-wrap: wrap;
+      }
+
+      .panel-card {
+        flex: 1 1 240px;
+      }
     }
-    ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 4px;
+    }
   </style>
 </head>
 <body>
@@ -175,6 +537,7 @@
     <div class="logo-icon">👁</div>
     DrowsyGuard
   </div>
+
   <div class="status-pill" id="statusPill">
     <div class="status-dot"></div>
     <span id="statusText">Menginisialisasi...</span>
@@ -182,25 +545,26 @@
 </header>
 
 <main>
-  <!-- VIDEO -->
   <div class="video-section">
     <div class="video-wrapper">
       <video id="inputVideo" playsinline></video>
       <canvas id="outputCanvas"></canvas>
+
       <div class="fps-badge" id="fpsBadge">— fps</div>
+
       <div class="drowsy-overlay" id="drowsyOverlay">
         <div class="drowsy-text">⚠ MENGANTUK!</div>
         <div class="drowsy-sub">Segera istirahat</div>
       </div>
     </div>
 
-    <!-- EYE STATUS CARDS -->
     <div class="eye-cards">
       <div class="eye-card" id="leftEyeCard">
         <div class="eye-label">Mata Kiri</div>
         <div class="eye-status-text" id="leftEyeStatus">—</div>
         <div class="eye-ear">EAR: <span id="leftEAR">—</span></div>
       </div>
+
       <div class="eye-card" id="rightEyeCard">
         <div class="eye-label">Mata Kanan</div>
         <div class="eye-status-text" id="rightEyeStatus">—</div>
@@ -209,106 +573,112 @@
     </div>
   </div>
 
-  <!-- SIDE PANEL -->
   <div class="side-panel">
-
-    <!-- PERCLOS -->
     <div class="panel-card">
       <div class="panel-title">PERCLOS (3 detik)</div>
       <div class="perclos-value" id="perclosValue">0%</div>
-      <div class="perclos-gauge"><div class="perclos-bar" id="perclosBar"></div></div>
+      <div class="perclos-gauge">
+        <div class="perclos-bar" id="perclosBar"></div>
+      </div>
       <div class="perclos-label">Ambang kantuk: ≥ 70%</div>
     </div>
 
-    <!-- CNN SCORE — highlight buat dosen -->
     <div class="panel-card cnn-panel">
-      <div class="panel-title">CNN Model Score <span class="cnn-badge">2 Model Aktif</span></div>
+      <div class="panel-title">
+        AI Model Score <span class="cnn-badge">CNN + OpenCV Aktif</span>
+      </div>
+
       <div class="cnn-score-row">
-        <span class="cnn-label">face_detection_model.h5</span>
+        <span class="cnn-label">Face Detection</span>
         <span class="cnn-val" id="cnnFaceScore">—</span>
       </div>
+
       <div class="cnn-score-row">
         <span class="cnn-label">sleep_detection_model.h5</span>
         <span class="cnn-val" id="cnnSleepScore">—</span>
       </div>
+
       <div class="cnn-score-row">
         <span class="cnn-label">CNN Verdict</span>
         <span class="cnn-val" id="cnnVerdict">—</span>
       </div>
     </div>
 
-    <!-- METRICS -->
     <div class="panel-card">
       <div class="panel-title">Metrik Real-time</div>
+
       <div class="metric-row">
         <span class="metric-name">Wajah</span>
         <span class="metric-val" id="faceStatus">—</span>
       </div>
+
       <div class="metric-row">
         <span class="metric-name">EAR Rata-rata</span>
         <span class="metric-val" id="avgEAR">—</span>
       </div>
+
       <div class="metric-row">
         <span class="metric-name">Durasi CLOSED</span>
         <span class="metric-val" id="closedDur">0s</span>
       </div>
+
       <div class="metric-row">
         <span class="metric-name">FPS</span>
         <span class="metric-val" id="fpsMetric">—</span>
       </div>
+
       <div class="metric-row">
         <span class="metric-name">Total Alert</span>
         <span class="metric-val" id="alertCount">0</span>
       </div>
     </div>
 
-    <!-- CONTROLS -->
     <div class="panel-card">
       <div class="panel-title">Kontrol</div>
+
       <div class="controls">
-        <button class="btn btn-primary"   id="startBtn" onclick="startCamera()">▶ Mulai</button>
-        <button class="btn btn-secondary" id="stopBtn"  onclick="stopCamera()" disabled>■ Stop</button>
+        <button class="btn btn-primary" id="startBtn" onclick="startCamera()">▶ Mulai</button>
+        <button class="btn btn-secondary" id="stopBtn" onclick="stopCamera()" disabled>■ Stop</button>
       </div>
+
       <div class="toggle-row">
         <span class="toggle-label">🔊 Alert suara</span>
-        <label class="toggle"><input type="checkbox" id="soundToggle" checked><span class="slider"></span></label>
+        <label class="toggle">
+          <input type="checkbox" id="soundToggle" checked>
+          <span class="slider"></span>
+        </label>
       </div>
+
       <div class="toggle-row">
         <span class="toggle-label">🪞 Mirror kamera</span>
-        <label class="toggle"><input type="checkbox" id="mirrorToggle" checked onchange="isMirrored=this.checked"><span class="slider"></span></label>
+        <label class="toggle">
+          <input type="checkbox" id="mirrorToggle" checked onchange="isMirrored=this.checked">
+          <span class="slider"></span>
+        </label>
       </div>
     </div>
 
-    <!-- HISTORY -->
     <div class="panel-card">
       <div class="panel-title">Riwayat Event</div>
       <div class="history-list" id="historyList">
         <div style="color:var(--muted);font-size:.78rem">Belum ada event.</div>
       </div>
     </div>
-
   </div>
 </main>
 
-<footer>DrowsyGuard · MediaPipe Face Mesh (EAR) + CNN face_detection & sleep_detection model</footer>
+<footer>DrowsyGuard · MediaPipe Face Mesh (EAR) + CNN Sleep Detection Model</footer>
 
 <script>
-// ═══════════════════════════════════════
-//  CONFIG
-// ═══════════════════════════════════════
 const EAR_THRESHOLD   = 0.18;
 const PERCLOS_WINDOW  = 3000;
 const DROWSY_PERCLOS  = 0.70;
 const CLOSED_ALERT_MS = 2000;
-const CNN_INTERVAL_MS = 500;   // kirim frame ke CNN tiap 500ms (tidak ganggu FPS)
+const CNN_INTERVAL_MS = 500;
 
-// MediaPipe eye landmark indices
 const LEFT_EYE  = [362, 385, 387, 263, 373, 380];
-const RIGHT_EYE = [33,  160, 158, 133, 153, 144];
+const RIGHT_EYE = [33, 160, 158, 133, 153, 144];
 
-// ═══════════════════════════════════════
-//  STATE
-// ═══════════════════════════════════════
 let faceMesh   = null;
 let camera     = null;
 let isRunning  = false;
@@ -320,72 +690,104 @@ let closedStartTime = null;
 let lastDrowsyState = false;
 let isDrowsy        = false;
 
-// CNN state (background)
 let cnnFaceScore  = null;
 let cnnSleepScore = null;
 let lastCnnSend   = 0;
 let cnnCanvas     = null;
 
-// FPS
-let fpsCount = 0, fpsLast = performance.now(), currentFPS = 0;
+let fpsCount = 0;
+let fpsLast = performance.now();
+let currentFPS = 0;
 
-// ═══════════════════════════════════════
-//  AUDIO
-// ═══════════════════════════════════════
-let audioCtx = null, isBeeping = false;
+let audioCtx = null;
+let isBeeping = false;
+
 function startBeep() {
   if (isBeeping || !document.getElementById('soundToggle').checked) return;
+
   isBeeping = true;
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+
   function loop() {
     if (!isBeeping) return;
-    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-    o.connect(g); g.connect(audioCtx.destination);
-    o.type = 'sine'; o.frequency.value = 880;
-    g.gain.setValueAtTime(0.5, audioCtx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
-    o.start(); o.stop(audioCtx.currentTime + 0.35);
-    o.onended = () => { if (isBeeping) setTimeout(loop, 600); };
+
+    const beepTimes = [0, 0.22, 0.44];
+
+    beepTimes.forEach((delay, index) => {
+      const oscillator = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      oscillator.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      oscillator.type = 'square';
+      oscillator.frequency.setValueAtTime(index % 2 === 0 ? 1450 : 1150, audioCtx.currentTime + delay);
+
+      gain.gain.setValueAtTime(0.0001, audioCtx.currentTime + delay);
+      gain.gain.exponentialRampToValueAtTime(0.85, audioCtx.currentTime + delay + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + delay + 0.20);
+
+      oscillator.start(audioCtx.currentTime + delay);
+      oscillator.stop(audioCtx.currentTime + delay + 0.22);
+    });
+
+    setTimeout(loop, 900);
   }
+
   loop();
 }
-function stopBeep() { isBeeping = false; }
 
-// ═══════════════════════════════════════
-//  EAR
-// ═══════════════════════════════════════
-function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+function stopBeep() {
+  isBeeping = false;
+}
+
+function dist(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
 function calcEAR(lm, idx) {
   const p = idx.map(i => lm[i]);
   return (dist(p[1],p[5]) + dist(p[2],p[4])) / (2 * dist(p[0],p[3]));
 }
 
-// ═══════════════════════════════════════
-//  DRAW
-// ═══════════════════════════════════════
 function drawEye(ctx, lm, idx, color, W, H) {
   ctx.beginPath();
+
   idx.forEach((i, n) => {
-    const x = lm[i].x * W, y = lm[i].y * H;
+    const x = lm[i].x * W;
+    const y = lm[i].y * H;
     n === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   });
+
   ctx.closePath();
-  ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
-  ctx.fillStyle = color + '33'; ctx.fill();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  ctx.fillStyle = color + '33';
+  ctx.fill();
 }
 
-// ═══════════════════════════════════════
-//  CNN BACKGROUND CALL
-// ═══════════════════════════════════════
 function sendToCNN(imageEl) {
   const now = performance.now();
+
   if (now - lastCnnSend < CNN_INTERVAL_MS) return;
+
   lastCnnSend = now;
 
   if (!cnnCanvas) {
     cnnCanvas = document.createElement('canvas');
-    cnnCanvas.width = 320; cnnCanvas.height = 240;
+    cnnCanvas.width = 320;
+    cnnCanvas.height = 240;
   }
+
   cnnCanvas.getContext('2d').drawImage(imageEl, 0, 0, 320, 240);
   const b64 = cnnCanvas.toDataURL('image/jpeg', 0.6);
 
@@ -397,227 +799,290 @@ function sendToCNN(imageEl) {
   .then(r => r.json())
   .then(data => {
     if (!data.success) return;
-    cnnFaceScore  = data.face_score;
+
+    cnnFaceScore = data.face_score;
     cnnSleepScore = data.sleep_score;
+
     updateCNNPanel();
   })
   .catch(() => {});
 }
 
 function updateCNNPanel() {
-  document.getElementById('cnnFaceScore').textContent  = cnnFaceScore  ?? '—';
-  document.getElementById('cnnSleepScore').textContent = cnnSleepScore ?? '—';
+  document.getElementById('cnnFaceScore').textContent =
+    cnnFaceScore !== null ? cnnFaceScore : '—';
 
-  // CNN verdict: sleep_score tinggi = OPEN
+  document.getElementById('cnnSleepScore').textContent =
+    cnnSleepScore !== null ? cnnSleepScore : '—';
+
   if (cnnSleepScore !== null) {
-    const v = cnnSleepScore >= 0.55 ? 'OPEN' : 'CLOSED';
-    document.getElementById('cnnVerdict').textContent = v;
-    document.getElementById('cnnVerdict').style.color =
-      v === 'OPEN' ? 'var(--ok)' : 'var(--danger)';
+    const verdict = cnnSleepScore >= 0.55 ? 'OPEN' : 'CLOSED';
+    const verdictEl = document.getElementById('cnnVerdict');
+
+    verdictEl.textContent = verdict;
+    verdictEl.style.color = verdict === 'OPEN' ? 'var(--ok)' : 'var(--danger)';
   }
 }
 
-// ═══════════════════════════════════════
-//  MEDIAPIPE CALLBACK
-// ═══════════════════════════════════════
 function onResults(results) {
   const canvas = document.getElementById('outputCanvas');
-  const ctx    = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width;
+  const H = canvas.height;
 
-  // FPS
   fpsCount++;
+
   const now = performance.now();
+
   if (now - fpsLast >= 1000) {
-    currentFPS = fpsCount; fpsCount = 0; fpsLast = now;
-    document.getElementById('fpsBadge').textContent  = currentFPS + ' fps';
+    currentFPS = fpsCount;
+    fpsCount = 0;
+    fpsLast = now;
+
+    document.getElementById('fpsBadge').textContent = currentFPS + ' fps';
     document.getElementById('fpsMetric').textContent = currentFPS + ' fps';
   }
 
   ctx.clearRect(0, 0, W, H);
-  if (isMirrored) { ctx.save(); ctx.translate(W, 0); ctx.scale(-1, 1); }
+
+  if (isMirrored) {
+    ctx.save();
+    ctx.translate(W, 0);
+    ctx.scale(-1, 1);
+  }
+
   ctx.drawImage(results.image, 0, 0, W, H);
 
-  // Kirim ke CNN di background (tidak blocking)
   sendToCNN(results.image);
 
   if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
     if (isMirrored) ctx.restore();
-    resetNoFace(); return;
+    resetNoFace();
+    return;
   }
 
   const lm = results.multiFaceLandmarks[0];
+
   const earL = calcEAR(lm, LEFT_EYE);
   const earR = calcEAR(lm, RIGHT_EYE);
   const earAvg = (earL + earR) / 2;
 
-  const leftClosed  = earL < EAR_THRESHOLD;
+  const leftClosed = earL < EAR_THRESHOLD;
   const rightClosed = earR < EAR_THRESHOLD;
-  const bothClosed  = leftClosed && rightClosed;
+  const bothClosed = leftClosed && rightClosed;
 
-  // Draw eye contours
-  drawEye(ctx, lm, LEFT_EYE,  leftClosed  ? '#ff2d55' : '#00ff88', W, H);
+  drawEye(ctx, lm, LEFT_EYE, leftClosed ? '#ff2d55' : '#00ff88', W, H);
   drawEye(ctx, lm, RIGHT_EYE, rightClosed ? '#ff2d55' : '#00ff88', W, H);
-
-  // EAR label di canvas
-  const lx = lm[LEFT_EYE[3]].x  * W;
-  const ly = lm[LEFT_EYE[0]].y  * H;
-  const rx = lm[RIGHT_EYE[3]].x * W;
-  const ry = lm[RIGHT_EYE[0]].y * H;
-  ctx.font = 'bold 12px JetBrains Mono, monospace';
-  ctx.fillStyle = leftClosed  ? '#ff2d55' : '#00ff88';
-  ctx.fillText(`L:${earL.toFixed(2)}`, lx + 6, ly - 6);
-  ctx.fillStyle = rightClosed ? '#ff2d55' : '#00ff88';
-  ctx.fillText(`R:${earR.toFixed(2)}`, rx + 6, ry - 6);
 
   if (isMirrored) ctx.restore();
 
-  // PERCLOS
   frameHistory.push({ ts: now, closed: bothClosed ? 1 : 0 });
-  while (frameHistory.length > 0 && now - frameHistory[0].ts > PERCLOS_WINDOW)
-    frameHistory.shift();
-  const perclos = frameHistory.reduce((s, f) => s + f.closed, 0) / frameHistory.length;
 
-  // Closed duration
-  if (bothClosed) { if (!closedStartTime) closedStartTime = now; }
-  else            { closedStartTime = null; }
+  while (frameHistory.length > 0 && now - frameHistory[0].ts > PERCLOS_WINDOW) {
+    frameHistory.shift();
+  }
+
+  const perclos = frameHistory.reduce((sum, frame) => sum + frame.closed, 0) / frameHistory.length;
+
+  if (bothClosed) {
+    if (!closedStartTime) closedStartTime = now;
+  } else {
+    closedStartTime = null;
+  }
+
   const closedDurMs = closedStartTime ? now - closedStartTime : 0;
 
-  // Drowsy decision (EAR sebagai penentu utama)
   isDrowsy = perclos >= DROWSY_PERCLOS || closedDurMs >= CLOSED_ALERT_MS;
 
   if (isDrowsy && !lastDrowsyState) {
     alertCount++;
     addHistory('drowsy', earL, earR);
     startBeep();
-    fetch('/log_event', { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ event:'DROWSY', ear_left:earL, ear_right:earR,
-        perclos, face_score:cnnFaceScore, sleep_score:cnnSleepScore }) });
+
+    fetch('/log_event', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify({
+        event: 'DROWSY',
+        ear_left: earL,
+        ear_right: earR,
+        perclos,
+        face_score: cnnFaceScore,
+        sleep_score: cnnSleepScore
+      })
+    });
   } else if (!isDrowsy && lastDrowsyState) {
     addHistory('awake', earL, earR);
     stopBeep();
   }
+
   lastDrowsyState = isDrowsy;
 
-  updateUI({ earL, earR, earAvg, leftClosed, rightClosed, perclos, closedDurMs });
+  updateUI({
+    earL,
+    earR,
+    earAvg,
+    leftClosed,
+    rightClosed,
+    perclos,
+    closedDurMs
+  });
 }
 
-// ═══════════════════════════════════════
-//  UI
-// ═══════════════════════════════════════
 function updateUI({ earL, earR, earAvg, leftClosed, rightClosed, perclos, closedDurMs }) {
   const pill = document.getElementById('statusPill');
-  const txt  = document.getElementById('statusText');
+  const txt = document.getElementById('statusText');
 
   if (isDrowsy) {
-    pill.className = 'status-pill danger'; txt.textContent = '⚠ MENGANTUK!';
+    pill.className = 'status-pill danger';
+    txt.textContent = '⚠ MENGANTUK!';
   } else {
-    pill.className = 'status-pill active'; txt.textContent = 'Normal';
+    pill.className = 'status-pill active';
+    txt.textContent = 'Normal';
   }
 
-  setEyeCard('left',  leftClosed,  earL);
+  setEyeCard('left', leftClosed, earL);
   setEyeCard('right', rightClosed, earR);
 
   const pct = (perclos * 100).toFixed(1);
+
   document.getElementById('perclosValue').textContent = pct + '%';
-  document.getElementById('perclosBar').style.width   = Math.min(perclos * 100, 100) + '%';
+  document.getElementById('perclosBar').style.width = Math.min(perclos * 100, 100) + '%';
 
   document.getElementById('faceStatus').textContent = '✓ Terdeteksi';
-  document.getElementById('avgEAR').textContent     = earAvg.toFixed(3);
-  document.getElementById('closedDur').textContent  = (closedDurMs / 1000).toFixed(1) + 's';
+  document.getElementById('avgEAR').textContent = earAvg.toFixed(3);
+  document.getElementById('closedDur').textContent = (closedDurMs / 1000).toFixed(1) + 's';
   document.getElementById('alertCount').textContent = alertCount;
 
-  if (isDrowsy) document.getElementById('drowsyOverlay').classList.add('visible');
-  else          document.getElementById('drowsyOverlay').classList.remove('visible');
+  if (isDrowsy) {
+    document.getElementById('drowsyOverlay').classList.add('visible');
+  } else {
+    document.getElementById('drowsyOverlay').classList.remove('visible');
+  }
 }
 
 function setEyeCard(side, closed, ear) {
-  document.getElementById(side+'EyeCard').className   = 'eye-card ' + (closed ? 'closed' : 'open');
-  document.getElementById(side+'EyeStatus').textContent = closed ? 'CLOSED' : 'OPEN';
-  document.getElementById(side+'EAR').textContent       = ear.toFixed(3);
+  document.getElementById(side + 'EyeCard').className = 'eye-card ' + (closed ? 'closed' : 'open');
+  document.getElementById(side + 'EyeStatus').textContent = closed ? 'CLOSED' : 'OPEN';
+  document.getElementById(side + 'EAR').textContent = ear.toFixed(3);
 }
 
 function resetNoFace() {
-  document.getElementById('statusPill').className  = 'status-pill';
+  document.getElementById('statusPill').className = 'status-pill';
   document.getElementById('statusText').textContent = 'Wajah Tidak Terdeteksi';
   document.getElementById('faceStatus').textContent = '✗ Tidak ada';
-  ['left','right'].forEach(s => {
-    document.getElementById(s+'EyeCard').className    = 'eye-card';
-    document.getElementById(s+'EyeStatus').textContent = '—';
-    document.getElementById(s+'EAR').textContent       = '—';
+
+  ['left','right'].forEach(side => {
+    document.getElementById(side + 'EyeCard').className = 'eye-card';
+    document.getElementById(side + 'EyeStatus').textContent = '—';
+    document.getElementById(side + 'EAR').textContent = '—';
   });
+
   document.getElementById('drowsyOverlay').classList.remove('visible');
-  stopBeep(); lastDrowsyState = false; closedStartTime = null;
+
+  stopBeep();
+
+  lastDrowsyState = false;
+  closedStartTime = null;
 }
 
 function addHistory(type, earL, earR) {
   const list = document.getElementById('historyList');
-  if (list.querySelector('div[style]')) list.innerHTML = '';
-  const time  = new Date().toLocaleTimeString('id-ID');
+
+  if (list.querySelector('div[style]')) {
+    list.innerHTML = '';
+  }
+
+  const time = new Date().toLocaleTimeString('id-ID');
+
   const badge = type === 'drowsy'
     ? '<span class="history-badge badge-drowsy">MENGANTUK</span>'
     : '<span class="history-badge badge-awake">SADAR</span>';
+
   const item = document.createElement('div');
+
   item.className = 'history-item';
-  item.innerHTML = `<span class="history-time">${time}</span>${badge}
-    <span style="color:var(--muted);font-size:.7rem">L:${earL.toFixed(2)} R:${earR.toFixed(2)}</span>`;
+  item.innerHTML = `
+    <span class="history-time">${time}</span>
+    ${badge}
+    <span style="color:var(--muted);font-size:.7rem">
+      L:${earL.toFixed(2)} R:${earR.toFixed(2)}
+    </span>
+  `;
+
   list.prepend(item);
-  while (list.children.length > 20) list.removeChild(list.lastChild);
+
+  while (list.children.length > 20) {
+    list.removeChild(list.lastChild);
+  }
 }
 
-// ═══════════════════════════════════════
-//  CAMERA
-// ═══════════════════════════════════════
 async function startCamera() {
   document.getElementById('startBtn').disabled = true;
   document.getElementById('statusText').textContent = 'Memuat MediaPipe...';
 
-  const video  = document.getElementById('inputVideo');
+  const video = document.getElementById('inputVideo');
   const canvas = document.getElementById('outputCanvas');
 
   faceMesh = new FaceMesh({
-    locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`
+    locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
   });
+
   faceMesh.setOptions({
     maxNumFaces: 1,
     refineLandmarks: true,
     minDetectionConfidence: 0.6,
-    minTrackingConfidence:  0.6,
+    minTrackingConfidence: 0.6,
   });
+
   faceMesh.onResults(onResults);
 
   camera = new Camera(video, {
     onFrame: async () => {
-      canvas.width  = video.videoWidth  || 640;
+      canvas.width = video.videoWidth || 640;
       canvas.height = video.videoHeight || 480;
       await faceMesh.send({ image: video });
     },
-    width: 640, height: 480, facingMode: 'user',
+    width: 640,
+    height: 480,
+    facingMode: 'user',
   });
 
   await camera.start();
+
   isRunning = true;
+
   document.getElementById('stopBtn').disabled = false;
 }
 
 function stopCamera() {
   if (!isRunning) return;
-  if (camera) camera.stop();
+
+  if (camera) {
+    camera.stop();
+  }
+
   stopBeep();
-  isRunning = false; lastDrowsyState = false;
-  closedStartTime = null; frameHistory = [];
+
+  isRunning = false;
+  lastDrowsyState = false;
+  closedStartTime = null;
+  frameHistory = [];
 
   const canvas = document.getElementById('outputCanvas');
+
   canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
 
   document.getElementById('startBtn').disabled = false;
-  document.getElementById('stopBtn').disabled  = true;
-  document.getElementById('statusPill').className  = 'status-pill';
+  document.getElementById('stopBtn').disabled = true;
+  document.getElementById('statusPill').className = 'status-pill';
   document.getElementById('statusText').textContent = 'Kamera dihentikan';
   document.getElementById('drowsyOverlay').classList.remove('visible');
 }
 
-window.addEventListener('load', () => setTimeout(startCamera, 500));
+window.addEventListener('load', () => {
+  setTimeout(startCamera, 500);
+});
 </script>
 </body>
 </html>
