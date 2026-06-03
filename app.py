@@ -11,15 +11,11 @@ from tensorflow.keras.preprocessing.image import img_to_array
 
 app = Flask(__name__)
 
-# Model utama yang wajib ada di GitHub/Render
 SLEEP_MODEL_PATH = os.environ.get("SLEEP_MODEL_PATH", "sleep_detection_model.h5")
 LOG_FILE = os.environ.get("LOG_FILE", "/tmp/drowsiness_log.jsonl")
 
-print("[INFO] Loading sleep_detection_model.h5 ...")
-sleep_model = load_model(SLEEP_MODEL_PATH)
-print("[INFO] Sleep model loaded OK.")
+sleep_model = None
 
-# Haar Cascade bawaan OpenCV untuk bantu crop wajah dan mata
 face_cascade = cv2.CascadeClassifier(
     cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
 )
@@ -31,6 +27,17 @@ eye_cascade = cv2.CascadeClassifier(
 MAX_W = 640
 
 
+def get_sleep_model():
+    global sleep_model
+
+    if sleep_model is None:
+        print("[INFO] Loading sleep_detection_model.h5 ...")
+        sleep_model = load_model(SLEEP_MODEL_PATH)
+        print("[INFO] Sleep model loaded OK.")
+
+    return sleep_model
+
+
 def resize(frame):
     h, w = frame.shape[:2]
 
@@ -38,7 +45,10 @@ def resize(frame):
         return frame
 
     scale = MAX_W / w
-    return cv2.resize(frame, (int(w * scale), int(h * scale)))
+    new_w = int(w * scale)
+    new_h = int(h * scale)
+
+    return cv2.resize(frame, (new_w, new_h))
 
 
 def prep(img, size=(64, 64)):
@@ -58,16 +68,20 @@ def run_sleep_model(crop):
     if inp is None:
         return None
 
-    return round(float(sleep_model.predict(inp, verbose=0)[0][0]), 4)
+    model = get_sleep_model()
+    score = model.predict(inp, verbose=0)[0][0]
+
+    return round(float(score), 4)
 
 
 def process_frame(frame):
     frame = resize(frame)
+
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     gray = cv2.equalizeHist(gray)
 
-    sleep_score = None
     face_score = None
+    sleep_score = None
 
     faces = face_cascade.detectMultiScale(
         gray,
@@ -79,11 +93,11 @@ def process_frame(frame):
     if len(faces) == 0:
         return face_score, sleep_score
 
-    # Kalau wajah ketemu, kasih nilai face_score dummy.
-    # Ini supaya frontend tetap dapat face_score tanpa butuh face_detection_model.h5.
+    # Kalau wajah terdeteksi oleh OpenCV, kasih score dummy.
+    # Jadi tidak perlu face_detection_model.h5.
     face_score = 1.0
 
-    x, y, w, h = max(faces, key=lambda b: b[2] * b[3])
+    x, y, w, h = max(faces, key=lambda box: box[2] * box[3])
 
     roi_gray = gray[y:y + h, x:x + w]
     roi_color = frame[y:y + h, x:x + w]
@@ -103,7 +117,12 @@ def process_frame(frame):
         is_reasonable_width = ew < w * 0.48
         is_reasonable_height = eh < h * 0.32
 
-        if not (is_upper_face and is_not_too_top and is_reasonable_width and is_reasonable_height):
+        if not (
+            is_upper_face
+            and is_not_too_top
+            and is_reasonable_width
+            and is_reasonable_height
+        ):
             continue
 
         eye_crop = roi_color[ey:ey + eh, ex:ex + ew]
@@ -146,7 +165,8 @@ def cnn_score():
         if "," in image_data:
             image_data = image_data.split(",", 1)[1]
 
-        np_arr = np.frombuffer(base64.b64decode(image_data), np.uint8)
+        image_bytes = base64.b64decode(image_data)
+        np_arr = np.frombuffer(image_bytes, np.uint8)
         frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
         if frame is None:
