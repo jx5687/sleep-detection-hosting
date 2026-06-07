@@ -198,9 +198,22 @@ def log_event():
         event = {
             "timestamp": datetime.utcnow().isoformat(),
             "event": data.get("event", "unknown"),
+
+            # mode deteksi
+            "mode": data.get("mode", "normal"),
+            "reason": data.get("reason"),
+            "warning_count": data.get("warning_count"),
+
+            # data mata
             "ear_left": data.get("ear_left"),
             "ear_right": data.get("ear_right"),
             "perclos": data.get("perclos"),
+
+            # data menguap
+            "mouth_ratio": data.get("mouth_ratio"),
+            "yawn": data.get("yawn"),
+
+            # data AI model
             "face_score": data.get("face_score"),
             "sleep_score": data.get("sleep_score"),
         }

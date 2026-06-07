@@ -120,7 +120,6 @@
     .metric-name { font-size: .8rem; color: var(--muted); }
     .metric-val  { font-family: 'JetBrains Mono', monospace; font-size: .85rem; font-weight: 600; }
 
-    /* CNN panel khusus — highlight buat dosen */
     .cnn-panel { border-color: var(--accent) !important; }
     .cnn-panel .panel-title { color: var(--accent); }
     .cnn-score-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
@@ -150,6 +149,41 @@
     input:checked + .slider { background: var(--accent); }
     input:checked + .slider::before { transform: translateX(18px); background:#000; }
 
+    .mode-switch {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .mode-btn {
+      padding: 10px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      cursor: pointer;
+      transition: .2s;
+    }
+
+    .mode-btn.active {
+      background: var(--text);
+      color: white;
+    }
+
+    .mode-btn.driving.active {
+      background: var(--danger);
+      border-color: var(--danger);
+      color: white;
+    }
+
+    .warning-3 {
+      color: var(--danger);
+      font-weight: 800;
+    }
+
     .history-list { display: flex; flex-direction: column; gap: 7px; max-height: 160px; overflow-y: auto; }
     .history-item { display: flex; gap: 8px; align-items: center; font-size: .76rem; flex-wrap: wrap; }
     .history-time { font-family: 'JetBrains Mono', monospace; color: var(--muted); white-space: nowrap; }
@@ -166,7 +200,7 @@
     }
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-  
+
     /* Clean white-gray dashboard override */
     body {
       background:
@@ -401,7 +435,7 @@
       <div class="perclos-label">Ambang kantuk: ≥ 70%</div>
     </div>
 
-    <!-- CNN SCORE — highlight buat dosen -->
+    <!-- CNN SCORE -->
     <div class="panel-card cnn-panel">
       <div class="panel-title">AI Model Score <span class="cnn-badge">CNN + OpenCV Aktif</span></div>
       <div class="cnn-score-row">
@@ -422,6 +456,10 @@
     <div class="panel-card">
       <div class="panel-title">Metrik Real-time</div>
       <div class="metric-row">
+        <span class="metric-name">Mode</span>
+        <span class="metric-val" id="currentModeLabel">Biasa</span>
+      </div>
+      <div class="metric-row">
         <span class="metric-name">Wajah</span>
         <span class="metric-val" id="faceStatus">—</span>
       </div>
@@ -432,6 +470,14 @@
       <div class="metric-row">
         <span class="metric-name">Durasi CLOSED</span>
         <span class="metric-val" id="closedDur">0s</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-name">Menguap</span>
+        <span class="metric-val" id="yawnStatus">Nonaktif</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-name">Warning Mengemudi</span>
+        <span class="metric-val" id="drivingWarning">0/3</span>
       </div>
       <div class="metric-row">
         <span class="metric-name">FPS</span>
@@ -450,6 +496,16 @@
         <button class="btn btn-primary"   id="startBtn" onclick="startCamera()">▶ Mulai</button>
         <button class="btn btn-secondary" id="stopBtn"  onclick="stopCamera()" disabled>■ Stop</button>
       </div>
+
+      <div class="mode-switch">
+        <button class="mode-btn active" id="normalModeBtn" onclick="setDetectionMode('normal')">
+          Mode Biasa
+        </button>
+        <button class="mode-btn driving" id="drivingModeBtn" onclick="setDetectionMode('driving')">
+          Mode Mengemudi
+        </button>
+      </div>
+
       <div class="toggle-row">
         <span class="toggle-label">🔊 Alert suara</span>
         <label class="toggle"><input type="checkbox" id="soundToggle" checked><span class="slider"></span></label>
@@ -471,21 +527,72 @@
   </div>
 </main>
 
-<footer>Sleep Detection · MediaPipe Face Mesh (EAR) + OpenCV + CNN Sleep Detection Model</footer>
+<footer>Sleep Detection · MediaPipe Face Mesh (EAR) + Menguap + Mode Mengemudi + OpenCV + CNN</footer>
 
 <script>
 // ═══════════════════════════════════════
-//  CONFIG
+//  CONFIG MODE
 // ═══════════════════════════════════════
-const EAR_THRESHOLD   = 0.18;
-const PERCLOS_WINDOW  = 3000;
-const DROWSY_PERCLOS  = 0.70;
-const CLOSED_ALERT_MS = 2000;
-const CNN_INTERVAL_MS = 500;   // kirim frame ke CNN tiap 500ms (tidak ganggu FPS)
+const MODE_CONFIG = {
+  normal: {
+    label: 'Biasa',
+
+    // Semakin kecil angka ini, semakin susah mata dianggap tertutup
+    earThreshold: 0.15,
+
+    perclosWindow: 3000,
+
+    // Semakin tinggi, semakin susah dianggap mengantuk
+    drowsyPerclos: 0.80,
+
+    // Mata harus tertutup 3 detik baru alarm
+    closedAlertMs: 3000,
+
+    yawnEnabled: false,
+    yawnThreshold: 0.45,
+    yawnAlertMs: 1200
+  },
+
+  driving: {
+    label: 'Mengemudi',
+
+    // Mode mengemudi tetap sensitif, tapi tidak terlalu gampang false detect
+    earThreshold: 0.18,
+
+    perclosWindow: 3000,
+
+    // Dari 0.50 dinaikkan jadi 0.65 biar tidak gampang alarm
+    drowsyPerclos: 0.65,
+
+    // Dari 1000ms dinaikkan jadi 1800ms
+    closedAlertMs: 1800,
+
+    yawnEnabled: true,
+
+    // Kalau sering kebaca menguap padahal tidak, naikkan ke 0.42
+    yawnThreshold: 0.42,
+
+    yawnAlertMs: 1000
+  }
+};
+
+const CNN_INTERVAL_MS = 500;
+
+let currentMode = 'normal';
+
+function getModeConfig() {
+  return MODE_CONFIG[currentMode];
+}
 
 // MediaPipe eye landmark indices
 const LEFT_EYE  = [362, 385, 387, 263, 373, 380];
 const RIGHT_EYE = [33,  160, 158, 133, 153, 144];
+
+// Landmark mulut untuk deteksi menguap
+const MOUTH_TOP = 13;
+const MOUTH_BOTTOM = 14;
+const MOUTH_LEFT = 78;
+const MOUTH_RIGHT = 308;
 
 // ═══════════════════════════════════════
 //  STATE
@@ -501,7 +608,12 @@ let closedStartTime = null;
 let lastDrowsyState = false;
 let isDrowsy        = false;
 
-// CNN state (background)
+let yawnStartTime = null;
+let isYawning = false;
+let drivingWarningCount = 0;
+let lastAlertReason = '—';
+
+// CNN state
 let cnnFaceScore  = null;
 let cnnSleepScore = null;
 let lastCnnSend   = 0;
@@ -514,31 +626,85 @@ let fpsCount = 0, fpsLast = performance.now(), currentFPS = 0;
 //  AUDIO
 // ═══════════════════════════════════════
 let audioCtx = null, isBeeping = false;
+
 function startBeep() {
   if (isBeeping || !document.getElementById('soundToggle').checked) return;
+
   isBeeping = true;
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+
   function loop() {
     if (!isBeeping) return;
-    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-    o.connect(g); g.connect(audioCtx.destination);
-    o.type = 'sine'; o.frequency.value = 880;
+
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+
+    o.connect(g);
+    g.connect(audioCtx.destination);
+
+    o.type = 'sine';
+    o.frequency.value = 880;
+
     g.gain.setValueAtTime(0.5, audioCtx.currentTime);
     g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
-    o.start(); o.stop(audioCtx.currentTime + 0.35);
-    o.onended = () => { if (isBeeping) setTimeout(loop, 600); };
+
+    o.start();
+    o.stop(audioCtx.currentTime + 0.35);
+
+    o.onended = () => {
+      if (isBeeping) setTimeout(loop, 600);
+    };
   }
+
   loop();
 }
-function stopBeep() { isBeeping = false; }
+
+function stopBeep() {
+  isBeeping = false;
+}
+
+function speakWarning(text) {
+  if (!document.getElementById('soundToggle').checked) return;
+  if (!('speechSynthesis' in window)) return;
+
+  window.speechSynthesis.cancel();
+
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = 'id-ID';
+  utterance.rate = 0.95;
+  utterance.pitch = 1;
+  utterance.volume = 1;
+
+  window.speechSynthesis.speak(utterance);
+}
+
+function playPullOverWarning() {
+  startBeep();
+  speakWarning('Peringatan ketiga. Anda terdeteksi mengantuk atau menguap. Segera menepi dan istirahat.');
+}
 
 // ═══════════════════════════════════════
-//  EAR
+//  EAR + YAWN
 // ═══════════════════════════════════════
-function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+function dist(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
 function calcEAR(lm, idx) {
   const p = idx.map(i => lm[i]);
-  return (dist(p[1],p[5]) + dist(p[2],p[4])) / (2 * dist(p[0],p[3]));
+  return (dist(p[1], p[5]) + dist(p[2], p[4])) / (2 * dist(p[0], p[3]));
+}
+
+function calcMouthRatio(lm) {
+  const vertical = dist(lm[MOUTH_TOP], lm[MOUTH_BOTTOM]);
+  const horizontal = dist(lm[MOUTH_LEFT], lm[MOUTH_RIGHT]);
+
+  if (horizontal === 0) return 0;
+
+  return vertical / horizontal;
 }
 
 // ═══════════════════════════════════════
@@ -546,13 +712,85 @@ function calcEAR(lm, idx) {
 // ═══════════════════════════════════════
 function drawEye(ctx, lm, idx, color, W, H) {
   ctx.beginPath();
+
   idx.forEach((i, n) => {
-    const x = lm[i].x * W, y = lm[i].y * H;
+    const x = lm[i].x * W;
+    const y = lm[i].y * H;
+
     n === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   });
+
   ctx.closePath();
-  ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
-  ctx.fillStyle = color + '33'; ctx.fill();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.fillStyle = color + '33';
+  ctx.fill();
+}
+
+function drawMouth(ctx, lm, W, H, danger) {
+  const points = [MOUTH_LEFT, MOUTH_TOP, MOUTH_RIGHT, MOUTH_BOTTOM];
+
+  ctx.beginPath();
+
+  points.forEach((i, n) => {
+    const x = lm[i].x * W;
+    const y = lm[i].y * H;
+
+    n === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+
+  ctx.closePath();
+  ctx.strokeStyle = danger ? '#ff2d55' : '#00ff88';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+// ═══════════════════════════════════════
+//  MODE
+// ═══════════════════════════════════════
+function setDetectionMode(mode) {
+  currentMode = mode;
+
+  // Reset state supaya mode baru mulai bersih
+  frameHistory = [];
+  closedStartTime = null;
+  yawnStartTime = null;
+  isYawning = false;
+  isDrowsy = false;
+  lastDrowsyState = false;
+  lastAlertReason = '—';
+  drivingWarningCount = 0;
+
+  stopBeep();
+
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+  }
+
+  document.getElementById('normalModeBtn').classList.toggle('active', mode === 'normal');
+  document.getElementById('drivingModeBtn').classList.toggle('active', mode === 'driving');
+
+  document.getElementById('currentModeLabel').textContent =
+    mode === 'driving' ? 'Mengemudi' : 'Biasa';
+
+  document.getElementById('drivingWarning').textContent = '0/3';
+
+  document.getElementById('yawnStatus').textContent =
+    mode === 'driving' ? 'Normal' : 'Nonaktif';
+
+  document.getElementById('yawnStatus').style.color =
+    mode === 'driving' ? 'var(--ok)' : 'var(--muted)';
+
+  const perclosLabel = document.querySelector('.perclos-label');
+
+  if (mode === 'driving') {
+    perclosLabel.textContent = 'Mode mengemudi lebih sensitif: ≥ 50%';
+  } else {
+    perclosLabel.textContent = 'Ambang kantuk: ≥ 70%';
+  }
+
+  document.getElementById('drowsyOverlay').classList.remove('visible');
 }
 
 // ═══════════════════════════════════════
@@ -560,14 +798,19 @@ function drawEye(ctx, lm, idx, color, W, H) {
 // ═══════════════════════════════════════
 function sendToCNN(imageEl) {
   const now = performance.now();
+
   if (now - lastCnnSend < CNN_INTERVAL_MS) return;
+
   lastCnnSend = now;
 
   if (!cnnCanvas) {
     cnnCanvas = document.createElement('canvas');
-    cnnCanvas.width = 320; cnnCanvas.height = 240;
+    cnnCanvas.width = 320;
+    cnnCanvas.height = 240;
   }
+
   cnnCanvas.getContext('2d').drawImage(imageEl, 0, 0, 320, 240);
+
   const b64 = cnnCanvas.toDataURL('image/jpeg', 0.6);
 
   fetch('/cnn_score', {
@@ -578,20 +821,23 @@ function sendToCNN(imageEl) {
   .then(r => r.json())
   .then(data => {
     if (!data.success) return;
-    cnnFaceScore  = data.face_score;
+
+    cnnFaceScore = data.face_score;
     cnnSleepScore = data.sleep_score;
+
     updateCNNPanel();
   })
   .catch(() => {});
 }
 
 function updateCNNPanel() {
-  document.getElementById('cnnFaceScore').textContent  = cnnFaceScore  ?? '—';
+  document.getElementById('cnnFaceScore').textContent = cnnFaceScore ?? '—';
   document.getElementById('cnnSleepScore').textContent = cnnSleepScore ?? '—';
 
   // CNN verdict: sleep_score tinggi = OPEN
   if (cnnSleepScore !== null) {
     const v = cnnSleepScore >= 0.55 ? 'OPEN' : 'CLOSED';
+
     document.getElementById('cnnVerdict').textContent = v;
     document.getElementById('cnnVerdict').style.color =
       v === 'OPEN' ? 'var(--ok)' : 'var(--danger)';
@@ -603,147 +849,347 @@ function updateCNNPanel() {
 // ═══════════════════════════════════════
 function onResults(results) {
   const canvas = document.getElementById('outputCanvas');
-  const ctx    = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width;
+  const H = canvas.height;
+
+  const config = getModeConfig();
 
   // FPS
   fpsCount++;
   const now = performance.now();
+
   if (now - fpsLast >= 1000) {
-    currentFPS = fpsCount; fpsCount = 0; fpsLast = now;
-    document.getElementById('fpsBadge').textContent  = currentFPS + ' fps';
+    currentFPS = fpsCount;
+    fpsCount = 0;
+    fpsLast = now;
+
+    document.getElementById('fpsBadge').textContent = currentFPS + ' fps';
     document.getElementById('fpsMetric').textContent = currentFPS + ' fps';
   }
 
   ctx.clearRect(0, 0, W, H);
-  if (isMirrored) { ctx.save(); ctx.translate(W, 0); ctx.scale(-1, 1); }
+
+  if (isMirrored) {
+    ctx.save();
+    ctx.translate(W, 0);
+    ctx.scale(-1, 1);
+  }
+
   ctx.drawImage(results.image, 0, 0, W, H);
 
-  // Kirim ke CNN di background (tidak blocking)
+  // Kirim ke CNN di background
   sendToCNN(results.image);
 
   if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
     if (isMirrored) ctx.restore();
-    resetNoFace(); return;
+    resetNoFace();
+    return;
   }
 
   const lm = results.multiFaceLandmarks[0];
+
   const earL = calcEAR(lm, LEFT_EYE);
   const earR = calcEAR(lm, RIGHT_EYE);
   const earAvg = (earL + earR) / 2;
 
-  const leftClosed  = earL < EAR_THRESHOLD;
-  const rightClosed = earR < EAR_THRESHOLD;
-  const bothClosed  = leftClosed && rightClosed;
+  const leftClosed = earL < config.earThreshold;
+  const rightClosed = earR < config.earThreshold;
+  const bothClosed = leftClosed && rightClosed;
+
+  // Deteksi mulut / menguap
+  const mouthRatio = calcMouthRatio(lm);
+  const mouthOpen = mouthRatio >= config.yawnThreshold;
+
+  if (config.yawnEnabled && mouthOpen) {
+    if (!yawnStartTime) yawnStartTime = now;
+  } else {
+    yawnStartTime = null;
+  }
+
+  const yawnDurMs = yawnStartTime ? now - yawnStartTime : 0;
+  isYawning = config.yawnEnabled && yawnDurMs >= config.yawnAlertMs;
 
   // Draw eye contours
-  drawEye(ctx, lm, LEFT_EYE,  leftClosed  ? '#ff2d55' : '#00ff88', W, H);
+  drawEye(ctx, lm, LEFT_EYE, leftClosed ? '#ff2d55' : '#00ff88', W, H);
   drawEye(ctx, lm, RIGHT_EYE, rightClosed ? '#ff2d55' : '#00ff88', W, H);
 
+  // Draw mouth
+  drawMouth(ctx, lm, W, H, isYawning);
+
   // EAR label di canvas
-  const lx = lm[LEFT_EYE[3]].x  * W;
-  const ly = lm[LEFT_EYE[0]].y  * H;
+  const lx = lm[LEFT_EYE[3]].x * W;
+  const ly = lm[LEFT_EYE[0]].y * H;
   const rx = lm[RIGHT_EYE[3]].x * W;
   const ry = lm[RIGHT_EYE[0]].y * H;
+
   ctx.font = 'bold 12px JetBrains Mono, monospace';
-  ctx.fillStyle = leftClosed  ? '#ff2d55' : '#00ff88';
+
+  ctx.fillStyle = leftClosed ? '#ff2d55' : '#00ff88';
   ctx.fillText(`L:${earL.toFixed(2)}`, lx + 6, ly - 6);
+
   ctx.fillStyle = rightClosed ? '#ff2d55' : '#00ff88';
   ctx.fillText(`R:${earR.toFixed(2)}`, rx + 6, ry - 6);
+
+  ctx.fillStyle = isYawning ? '#ff2d55' : '#00ff88';
+  ctx.fillText(`M:${mouthRatio.toFixed(2)}`, lm[MOUTH_RIGHT].x * W + 6, lm[MOUTH_TOP].y * H - 6);
 
   if (isMirrored) ctx.restore();
 
   // PERCLOS
   frameHistory.push({ ts: now, closed: bothClosed ? 1 : 0 });
-  while (frameHistory.length > 0 && now - frameHistory[0].ts > PERCLOS_WINDOW)
+
+  while (frameHistory.length > 0 && now - frameHistory[0].ts > config.perclosWindow) {
     frameHistory.shift();
-  const perclos = frameHistory.reduce((s, f) => s + f.closed, 0) / frameHistory.length;
+  }
+
+  const perclos = frameHistory.length > 0
+    ? frameHistory.reduce((s, f) => s + f.closed, 0) / frameHistory.length
+    : 0;
 
   // Closed duration
-  if (bothClosed) { if (!closedStartTime) closedStartTime = now; }
-  else            { closedStartTime = null; }
+  if (bothClosed) {
+    if (!closedStartTime) closedStartTime = now;
+  } else {
+    closedStartTime = null;
+  }
+
   const closedDurMs = closedStartTime ? now - closedStartTime : 0;
 
-  // Drowsy decision (EAR sebagai penentu utama)
-  isDrowsy = perclos >= DROWSY_PERCLOS || closedDurMs >= CLOSED_ALERT_MS;
+  // Keputusan kantuk / bahaya
+  const drowsyByPerclos = perclos >= config.drowsyPerclos;
+  const drowsyByClosedEyes = closedDurMs >= config.closedAlertMs;
+  const drowsyByYawn = isYawning;
 
+  isDrowsy = drowsyByPerclos || drowsyByClosedEyes || drowsyByYawn;
+
+  if (drowsyByYawn) {
+    lastAlertReason = 'MENGUAP';
+  } else if (drowsyByClosedEyes) {
+    lastAlertReason = 'MATA TERTUTUP';
+  } else if (drowsyByPerclos) {
+    lastAlertReason = 'PERCLOS TINGGI';
+  } else {
+    lastAlertReason = '—';
+  }
+
+  // Alert event
   if (isDrowsy && !lastDrowsyState) {
     alertCount++;
-    addHistory('drowsy', earL, earR);
-    startBeep();
-    fetch('/log_event', { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ event:'DROWSY', ear_left:earL, ear_right:earR,
-        perclos, face_score:cnnFaceScore, sleep_score:cnnSleepScore }) });
+
+    if (currentMode === 'driving') {
+      drivingWarningCount++;
+
+      if (drivingWarningCount >= 3) {
+        playPullOverWarning();
+      } else {
+        startBeep();
+      }
+    } else {
+      startBeep();
+    }
+
+    addHistory('drowsy', earL, earR, lastAlertReason);
+
+    fetch('/log_event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event: currentMode === 'driving' ? 'DRIVING_DANGER' : 'DROWSY',
+        mode: currentMode,
+        reason: lastAlertReason,
+        warning_count: drivingWarningCount,
+        ear_left: earL,
+        ear_right: earR,
+        perclos,
+        mouth_ratio: mouthRatio,
+        yawn: isYawning,
+        face_score: cnnFaceScore,
+        sleep_score: cnnSleepScore
+      })
+    });
+
   } else if (!isDrowsy && lastDrowsyState) {
-    addHistory('awake', earL, earR);
+    addHistory('awake', earL, earR, 'NORMAL');
     stopBeep();
   }
+
   lastDrowsyState = isDrowsy;
 
-  updateUI({ earL, earR, earAvg, leftClosed, rightClosed, perclos, closedDurMs });
+  updateUI({
+    earL,
+    earR,
+    earAvg,
+    leftClosed,
+    rightClosed,
+    perclos,
+    closedDurMs,
+    mouthRatio,
+    mouthOpen,
+    yawnDurMs
+  });
 }
 
 // ═══════════════════════════════════════
 //  UI
 // ═══════════════════════════════════════
-function updateUI({ earL, earR, earAvg, leftClosed, rightClosed, perclos, closedDurMs }) {
+function updateUI({
+  earL,
+  earR,
+  earAvg,
+  leftClosed,
+  rightClosed,
+  perclos,
+  closedDurMs,
+  mouthRatio,
+  mouthOpen,
+  yawnDurMs
+}) {
   const pill = document.getElementById('statusPill');
-  const txt  = document.getElementById('statusText');
+  const txt = document.getElementById('statusText');
+
+  const overlay = document.getElementById('drowsyOverlay');
+  const overlayText = overlay.querySelector('.drowsy-text');
+  const overlaySub = overlay.querySelector('.drowsy-sub');
 
   if (isDrowsy) {
-    pill.className = 'status-pill danger'; txt.textContent = '⚠ MENGANTUK!';
+    pill.className = 'status-pill danger';
+
+    if (currentMode === 'driving' && drivingWarningCount >= 3) {
+      txt.textContent = '⚠ SEGERA MENEPI!';
+      overlayText.textContent = '⚠ MENEPI!';
+      overlaySub.textContent = 'Peringatan ke-3: segera menepi dan istirahat';
+    } else if (currentMode === 'driving' && isYawning) {
+      txt.textContent = '⚠ MENGUAP BERBAHAYA!';
+      overlayText.textContent = '⚠ MENGUAP!';
+      overlaySub.textContent = 'Mode mengemudi: menguap terdeteksi bahaya';
+    } else {
+      txt.textContent = '⚠ MENGANTUK!';
+      overlayText.textContent = '⚠ MENGANTUK!';
+      overlaySub.textContent = currentMode === 'driving'
+        ? 'Mode mengemudi: tingkat bahaya tinggi'
+        : 'Segera istirahat';
+    }
+
   } else {
-    pill.className = 'status-pill active'; txt.textContent = 'Normal';
+    pill.className = 'status-pill active';
+    txt.textContent = currentMode === 'driving'
+      ? 'Normal - Mode Mengemudi'
+      : 'Normal';
   }
 
-  setEyeCard('left',  leftClosed,  earL);
+  setEyeCard('left', leftClosed, earL);
   setEyeCard('right', rightClosed, earR);
 
   const pct = (perclos * 100).toFixed(1);
+
   document.getElementById('perclosValue').textContent = pct + '%';
-  document.getElementById('perclosBar').style.width   = Math.min(perclos * 100, 100) + '%';
+  document.getElementById('perclosBar').style.width = Math.min(perclos * 100, 100) + '%';
 
   document.getElementById('faceStatus').textContent = '✓ Terdeteksi';
-  document.getElementById('avgEAR').textContent     = earAvg.toFixed(3);
-  document.getElementById('closedDur').textContent  = (closedDurMs / 1000).toFixed(1) + 's';
+  document.getElementById('avgEAR').textContent = earAvg.toFixed(3);
+  document.getElementById('closedDur').textContent = (closedDurMs / 1000).toFixed(1) + 's';
   document.getElementById('alertCount').textContent = alertCount;
 
-  if (isDrowsy) document.getElementById('drowsyOverlay').classList.add('visible');
-  else          document.getElementById('drowsyOverlay').classList.remove('visible');
+  document.getElementById('currentModeLabel').textContent =
+    currentMode === 'driving' ? 'Mengemudi' : 'Biasa';
+
+  if (currentMode === 'driving') {
+    if (isYawning) {
+      document.getElementById('yawnStatus').textContent = 'BAHAYA';
+      document.getElementById('yawnStatus').style.color = 'var(--danger)';
+    } else if (mouthOpen) {
+      document.getElementById('yawnStatus').textContent = 'Mulut terbuka';
+      document.getElementById('yawnStatus').style.color = 'var(--warn)';
+    } else {
+      document.getElementById('yawnStatus').textContent = 'Normal';
+      document.getElementById('yawnStatus').style.color = 'var(--ok)';
+    }
+  } else {
+    document.getElementById('yawnStatus').textContent = 'Nonaktif';
+    document.getElementById('yawnStatus').style.color = 'var(--muted)';
+  }
+
+  const drivingWarningEl = document.getElementById('drivingWarning');
+  drivingWarningEl.textContent = drivingWarningCount + '/3';
+
+  if (currentMode === 'driving' && drivingWarningCount >= 3) {
+    drivingWarningEl.className = 'metric-val warning-3';
+  } else {
+    drivingWarningEl.className = 'metric-val';
+  }
+
+  if (isDrowsy) {
+    overlay.classList.add('visible');
+  } else {
+    overlay.classList.remove('visible');
+  }
 }
 
 function setEyeCard(side, closed, ear) {
-  document.getElementById(side+'EyeCard').className   = 'eye-card ' + (closed ? 'closed' : 'open');
-  document.getElementById(side+'EyeStatus').textContent = closed ? 'CLOSED' : 'OPEN';
-  document.getElementById(side+'EAR').textContent       = ear.toFixed(3);
+  document.getElementById(side + 'EyeCard').className = 'eye-card ' + (closed ? 'closed' : 'open');
+  document.getElementById(side + 'EyeStatus').textContent = closed ? 'CLOSED' : 'OPEN';
+  document.getElementById(side + 'EAR').textContent = ear.toFixed(3);
 }
 
 function resetNoFace() {
-  document.getElementById('statusPill').className  = 'status-pill';
+  document.getElementById('statusPill').className = 'status-pill';
   document.getElementById('statusText').textContent = 'Wajah Tidak Terdeteksi';
   document.getElementById('faceStatus').textContent = '✗ Tidak ada';
-  ['left','right'].forEach(s => {
-    document.getElementById(s+'EyeCard').className    = 'eye-card';
-    document.getElementById(s+'EyeStatus').textContent = '—';
-    document.getElementById(s+'EAR').textContent       = '—';
+
+  ['left', 'right'].forEach(s => {
+    document.getElementById(s + 'EyeCard').className = 'eye-card';
+    document.getElementById(s + 'EyeStatus').textContent = '—';
+    document.getElementById(s + 'EAR').textContent = '—';
   });
+
   document.getElementById('drowsyOverlay').classList.remove('visible');
-  stopBeep(); lastDrowsyState = false; closedStartTime = null;
+  document.getElementById('yawnStatus').textContent =
+    currentMode === 'driving' ? 'Tidak terbaca' : 'Nonaktif';
+  document.getElementById('drivingWarning').textContent = drivingWarningCount + '/3';
+
+  stopBeep();
+
+  lastDrowsyState = false;
+  closedStartTime = null;
+  yawnStartTime = null;
+  isYawning = false;
 }
 
-function addHistory(type, earL, earR) {
+function addHistory(type, earL, earR, reason = '') {
   const list = document.getElementById('historyList');
-  if (list.querySelector('div[style]')) list.innerHTML = '';
-  const time  = new Date().toLocaleTimeString('id-ID');
-  const badge = type === 'drowsy'
-    ? '<span class="history-badge badge-drowsy">MENGANTUK</span>'
-    : '<span class="history-badge badge-awake">SADAR</span>';
+
+  if (list.querySelector('div[style]')) {
+    list.innerHTML = '';
+  }
+
+  const time = new Date().toLocaleTimeString('id-ID');
+
+  let badge = '';
+
+  if (type === 'drowsy') {
+    badge = `<span class="history-badge badge-drowsy">${reason || 'MENGANTUK'}</span>`;
+  } else {
+    badge = '<span class="history-badge badge-awake">SADAR</span>';
+  }
+
   const item = document.createElement('div');
   item.className = 'history-item';
-  item.innerHTML = `<span class="history-time">${time}</span>${badge}
-    <span style="color:var(--muted);font-size:.7rem">L:${earL.toFixed(2)} R:${earR.toFixed(2)}</span>`;
+
+  item.innerHTML = `
+    <span class="history-time">${time}</span>
+    ${badge}
+    <span style="color:var(--muted);font-size:.7rem">
+      Mode: ${currentMode === 'driving' ? 'Mengemudi' : 'Biasa'} ·
+      L:${earL.toFixed(2)} R:${earR.toFixed(2)}
+    </span>
+  `;
+
   list.prepend(item);
-  while (list.children.length > 20) list.removeChild(list.lastChild);
+
+  while (list.children.length > 20) {
+    list.removeChild(list.lastChild);
+  }
 }
 
 // ═══════════════════════════════════════
@@ -753,56 +1199,79 @@ async function startCamera() {
   document.getElementById('startBtn').disabled = true;
   document.getElementById('statusText').textContent = 'Memuat MediaPipe...';
 
-  const video  = document.getElementById('inputVideo');
+  const video = document.getElementById('inputVideo');
   const canvas = document.getElementById('outputCanvas');
 
   faceMesh = new FaceMesh({
     locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`
   });
+
   faceMesh.setOptions({
     maxNumFaces: 1,
     refineLandmarks: true,
     minDetectionConfidence: 0.6,
-    minTrackingConfidence:  0.6,
+    minTrackingConfidence: 0.6,
   });
+
   faceMesh.onResults(onResults);
 
   camera = new Camera(video, {
     onFrame: async () => {
-      canvas.width  = video.videoWidth  || 640;
+      canvas.width = video.videoWidth || 640;
       canvas.height = video.videoHeight || 480;
+
       await faceMesh.send({ image: video });
     },
-    width: 640, height: 480, facingMode: 'user',
+    width: 640,
+    height: 480,
+    facingMode: 'user',
   });
 
   await camera.start();
+
   isRunning = true;
+
   document.getElementById('stopBtn').disabled = false;
 }
 
 function stopCamera() {
   if (!isRunning) return;
+
   if (camera) camera.stop();
+
   stopBeep();
-  isRunning = false; lastDrowsyState = false;
-  closedStartTime = null; frameHistory = [];
+
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+  }
+
+  isRunning = false;
+  lastDrowsyState = false;
+  closedStartTime = null;
+  frameHistory = [];
+
+  drivingWarningCount = 0;
+  yawnStartTime = null;
+  isYawning = false;
 
   const canvas = document.getElementById('outputCanvas');
   canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
 
   document.getElementById('startBtn').disabled = false;
-  document.getElementById('stopBtn').disabled  = true;
-  document.getElementById('statusPill').className  = 'status-pill';
+  document.getElementById('stopBtn').disabled = true;
+  document.getElementById('statusPill').className = 'status-pill';
   document.getElementById('statusText').textContent = 'Kamera dihentikan';
   document.getElementById('drowsyOverlay').classList.remove('visible');
-}
 
+  document.getElementById('drivingWarning').textContent = '0/3';
+  document.getElementById('yawnStatus').textContent =
+    currentMode === 'driving' ? 'Normal' : 'Nonaktif';
+}
 
 window.addEventListener('load', () => {
   document.getElementById('statusText').textContent = 'Standby';
+  setDetectionMode('normal');
 });
-
 </script>
 </body>
 </html>
