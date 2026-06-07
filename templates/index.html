@@ -550,7 +550,10 @@ const MODE_CONFIG = {
 
     yawnEnabled: false,
     yawnThreshold: 0.45,
-    yawnAlertMs: 1200
+    yawnAlertMs: 1200,
+
+    // Wajah hilang/nunduk harus 3 detik baru alarm
+    noFaceAlertMs: 3000
   },
 
   driving: {
@@ -572,11 +575,18 @@ const MODE_CONFIG = {
     // Kalau sering kebaca menguap padahal tidak, naikkan ke 0.42
     yawnThreshold: 0.42,
 
-    yawnAlertMs: 1000
+    yawnAlertMs: 1000,
+
+    // Mode mengemudi: wajah hilang/nunduk lebih cepat dianggap bahaya
+    noFaceAlertMs: 1500
   }
 };
 
 const CNN_INTERVAL_MS = 500;
+
+// Jika bahaya di mode mengemudi masih berlangsung,
+// suara peringatan akan diulang dan nomornya naik tiap 6 detik.
+const DRIVING_REPEAT_WARNING_MS = 6000;
 
 let currentMode = 'normal';
 
@@ -611,7 +621,12 @@ let isDrowsy        = false;
 let yawnStartTime = null;
 let isYawning = false;
 let drivingWarningCount = 0;
+let lastDrivingVoiceWarningTime = 0;
 let lastAlertReason = '—';
+
+// State untuk wajah tidak terdeteksi / kepala nunduk
+let noFaceStartTime = null;
+let noFaceDangerActive = false;
 
 // CNN state
 let cnnFaceScore  = null;
@@ -681,11 +696,19 @@ function speakWarning(text) {
   window.speechSynthesis.speak(utterance);
 }
 
-function playPullOverWarning() {
+function playPullOverWarning(warningNumber, reason = 'MENGANTUK') {
   startBeep();
-  speakWarning('Peringatan ketiga. Anda terdeteksi mengantuk atau menguap. Segera menepi dan istirahat.');
-}
 
+  let message = `Peringatan ke-${warningNumber}. Anda terdeteksi mengantuk. Segera menepi dan istirahat.`;
+
+  if (reason === 'WAJAH_TIDAK_TERDETEKSI') {
+    message = `Peringatan ke-${warningNumber}. Wajah tidak terdeteksi atau kepala menunduk. Segera menepi dan istirahat.`;
+  } else if (reason === 'MENGUAP') {
+    message = `Peringatan ke-${warningNumber}. Anda terdeteksi menguap. Segera menepi dan istirahat.`;
+  }
+
+  speakWarning(message);
+}
 // ═══════════════════════════════════════
 //  EAR + YAWN
 // ═══════════════════════════════════════
@@ -761,6 +784,9 @@ function setDetectionMode(mode) {
   lastDrowsyState = false;
   lastAlertReason = '—';
   drivingWarningCount = 0;
+  lastDrivingVoiceWarningTime = 0;
+  noFaceStartTime = null;
+  noFaceDangerActive = false;
 
   stopBeep();
 
@@ -883,9 +909,13 @@ function onResults(results) {
 
   if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
     if (isMirrored) ctx.restore();
-    resetNoFace();
+    handleNoFace(now);
     return;
   }
+
+  // Kalau wajah kembali terdeteksi, reset timer wajah hilang/nunduk
+  noFaceStartTime = null;
+  noFaceDangerActive = false;
 
   const lm = results.multiFaceLandmarks[0];
 
@@ -981,7 +1011,8 @@ function onResults(results) {
       drivingWarningCount++;
 
       if (drivingWarningCount >= 3) {
-        playPullOverWarning();
+        lastDrivingVoiceWarningTime = now;
+        playPullOverWarning(drivingWarningCount, lastAlertReason === 'MENGUAP' ? 'MENGUAP' : 'MENGANTUK');
       } else {
         startBeep();
       }
@@ -1008,6 +1039,36 @@ function onResults(results) {
         sleep_score: cnnSleepScore
       })
     });
+
+  } else if (isDrowsy && currentMode === 'driving' && drivingWarningCount >= 3) {
+    // Kalau pengguna tetap terdeteksi bahaya, ulangi suara peringatan.
+    // Nomor peringatan akan naik: ke-4, ke-5, dst.
+    if (now - lastDrivingVoiceWarningTime >= DRIVING_REPEAT_WARNING_MS) {
+      drivingWarningCount++;
+      alertCount++;
+      lastDrivingVoiceWarningTime = now;
+
+      playPullOverWarning(drivingWarningCount, lastAlertReason === 'MENGUAP' ? 'MENGUAP' : 'MENGANTUK');
+      addHistory('drowsy', earL, earR, lastAlertReason);
+
+      fetch('/log_event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'DRIVING_DANGER_REPEAT',
+          mode: currentMode,
+          reason: lastAlertReason,
+          warning_count: drivingWarningCount,
+          ear_left: earL,
+          ear_right: earR,
+          perclos,
+          mouth_ratio: mouthRatio,
+          yawn: isYawning,
+          face_score: cnnFaceScore,
+          sleep_score: cnnSleepScore
+        })
+      });
+    }
 
   } else if (!isDrowsy && lastDrowsyState) {
     addHistory('awake', earL, earR, 'NORMAL');
@@ -1058,7 +1119,7 @@ function updateUI({
     if (currentMode === 'driving' && drivingWarningCount >= 3) {
       txt.textContent = '⚠ SEGERA MENEPI!';
       overlayText.textContent = '⚠ MENEPI!';
-      overlaySub.textContent = 'Peringatan ke-3: segera menepi dan istirahat';
+      overlaySub.textContent = `Peringatan ke-${drivingWarningCount}: segera menepi dan istirahat`;
     } else if (currentMode === 'driving' && isYawning) {
       txt.textContent = '⚠ MENGUAP BERBAHAYA!';
       overlayText.textContent = '⚠ MENGUAP!';
@@ -1111,11 +1172,12 @@ function updateUI({
   }
 
   const drivingWarningEl = document.getElementById('drivingWarning');
-  drivingWarningEl.textContent = drivingWarningCount + '/3';
 
   if (currentMode === 'driving' && drivingWarningCount >= 3) {
+    drivingWarningEl.textContent = 'Ke-' + drivingWarningCount;
     drivingWarningEl.className = 'metric-val warning-3';
   } else {
+    drivingWarningEl.textContent = drivingWarningCount + '/3';
     drivingWarningEl.className = 'metric-val';
   }
 
@@ -1130,6 +1192,134 @@ function setEyeCard(side, closed, ear) {
   document.getElementById(side + 'EyeCard').className = 'eye-card ' + (closed ? 'closed' : 'open');
   document.getElementById(side + 'EyeStatus').textContent = closed ? 'CLOSED' : 'OPEN';
   document.getElementById(side + 'EAR').textContent = ear.toFixed(3);
+}
+
+function handleNoFace(now) {
+  const config = getModeConfig();
+  const overlay = document.getElementById('drowsyOverlay');
+  const overlayText = overlay.querySelector('.drowsy-text');
+  const overlaySub = overlay.querySelector('.drowsy-sub');
+
+  if (!noFaceStartTime) {
+    noFaceStartTime = now;
+  }
+
+  const noFaceDurMs = now - noFaceStartTime;
+  const isNoFaceDanger = noFaceDurMs >= config.noFaceAlertMs;
+
+  document.getElementById('statusPill').className = isNoFaceDanger
+    ? 'status-pill danger'
+    : 'status-pill';
+
+  document.getElementById('statusText').textContent = isNoFaceDanger
+    ? '⚠ WAJAH HILANG / NUNDUK!'
+    : 'Wajah Tidak Terdeteksi';
+
+  document.getElementById('faceStatus').textContent = isNoFaceDanger
+    ? '⚠ Hilang/Nunduk'
+    : '✗ Tidak ada';
+
+  ['left', 'right'].forEach(s => {
+    document.getElementById(s + 'EyeCard').className = 'eye-card';
+    document.getElementById(s + 'EyeStatus').textContent = '—';
+    document.getElementById(s + 'EAR').textContent = '—';
+  });
+
+  document.getElementById('avgEAR').textContent = '—';
+  document.getElementById('closedDur').textContent = (noFaceDurMs / 1000).toFixed(1) + 's';
+  document.getElementById('yawnStatus').textContent = currentMode === 'driving' ? 'Tidak terbaca' : 'Nonaktif';
+  document.getElementById('drivingWarning').textContent = drivingWarningCount + '/3';
+
+  closedStartTime = null;
+  yawnStartTime = null;
+  isYawning = false;
+
+  if (!isNoFaceDanger) {
+    overlay.classList.remove('visible');
+    noFaceDangerActive = false;
+    lastDrowsyState = false;
+    stopBeep();
+    return;
+  }
+
+  isDrowsy = true;
+  lastAlertReason = 'WAJAH_TIDAK_TERDETEKSI';
+  overlay.classList.add('visible');
+  overlayText.textContent = '⚠ WAJAH HILANG!';
+  overlaySub.textContent = currentMode === 'driving'
+    ? 'Kepala menunduk atau wajah tidak terbaca kamera'
+    : 'Wajah tidak terdeteksi terlalu lama';
+
+  if (!noFaceDangerActive) {
+    alertCount++;
+
+    if (currentMode === 'driving') {
+      drivingWarningCount++;
+
+      if (drivingWarningCount >= 3) {
+        lastDrivingVoiceWarningTime = now;
+        playPullOverWarning(drivingWarningCount, 'WAJAH_TIDAK_TERDETEKSI');
+      } else {
+        startBeep();
+      }
+    } else {
+      startBeep();
+      speakWarning('Wajah tidak terdeteksi atau kepala menunduk. Mohon kembali ke posisi kamera.');
+    }
+
+    addHistory('drowsy', 0, 0, 'WAJAH HILANG / NUNDUK');
+
+    fetch('/log_event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event: currentMode === 'driving' ? 'DRIVING_NO_FACE' : 'NO_FACE',
+        mode: currentMode,
+        reason: 'WAJAH_TIDAK_TERDETEKSI',
+        warning_count: drivingWarningCount,
+        ear_left: null,
+        ear_right: null,
+        perclos: null,
+        mouth_ratio: null,
+        yawn: false,
+        face_score: cnnFaceScore,
+        sleep_score: cnnSleepScore
+      })
+    });
+
+    noFaceDangerActive = true;
+  } else if (currentMode === 'driving' && drivingWarningCount >= 3) {
+    // Kalau tetap nunduk/wajah hilang, ulangi warning ke-4, ke-5, dst.
+    if (now - lastDrivingVoiceWarningTime >= DRIVING_REPEAT_WARNING_MS) {
+      drivingWarningCount++;
+      alertCount++;
+      lastDrivingVoiceWarningTime = now;
+
+      playPullOverWarning(drivingWarningCount, 'WAJAH_TIDAK_TERDETEKSI');
+      addHistory('drowsy', 0, 0, 'WAJAH HILANG / NUNDUK');
+
+      fetch('/log_event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'DRIVING_NO_FACE_REPEAT',
+          mode: currentMode,
+          reason: 'WAJAH_TIDAK_TERDETEKSI',
+          warning_count: drivingWarningCount,
+          ear_left: null,
+          ear_right: null,
+          perclos: null,
+          mouth_ratio: null,
+          yawn: false,
+          face_score: cnnFaceScore,
+          sleep_score: cnnSleepScore
+        })
+      });
+    }
+  }
+
+  document.getElementById('alertCount').textContent = alertCount;
+  document.getElementById('drivingWarning').textContent = drivingWarningCount + '/3';
 }
 
 function resetNoFace() {
@@ -1154,6 +1344,8 @@ function resetNoFace() {
   closedStartTime = null;
   yawnStartTime = null;
   isYawning = false;
+  noFaceStartTime = null;
+  noFaceDangerActive = false;
 }
 
 function addHistory(type, earL, earR, reason = '') {
@@ -1251,8 +1443,11 @@ function stopCamera() {
   frameHistory = [];
 
   drivingWarningCount = 0;
+  lastDrivingVoiceWarningTime = 0;
   yawnStartTime = null;
   isYawning = false;
+  noFaceStartTime = null;
+  noFaceDangerActive = false;
 
   const canvas = document.getElementById('outputCanvas');
   canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
